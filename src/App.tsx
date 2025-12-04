@@ -13,6 +13,7 @@ import AAPsPage from "./pages/admin/AAPsPage";
 import ProgramacaoPage from "./pages/admin/ProgramacaoPage";
 import RegistrosPage from "./pages/admin/RegistrosPage";
 import RelatoriosPage from "./pages/admin/RelatoriosPage";
+import AAPRegistrarAcaoPage from "./pages/aap/AAPRegistrarAcaoPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,10 +39,10 @@ const App = () => (
               <Route path="/registros" element={<RegistrosPage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               
-              {/* AAP Routes - using same components for demo */}
+              {/* AAP Routes */}
               <Route path="/aap/dashboard" element={<AdminDashboard />} />
               <Route path="/aap/calendario" element={<ProgramacaoPage />} />
-              <Route path="/aap/registrar" element={<RegistrosPage />} />
+              <Route path="/aap/registrar" element={<AAPRegistrarAcaoPage />} />
               <Route path="/aap/historico" element={<RegistrosPage />} />
             </Route>
             
