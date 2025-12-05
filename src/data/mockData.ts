@@ -9,32 +9,47 @@ export const escolas: Escola[] = [
 ];
 
 export const professores: Professor[] = [
-  // Escola 1
-  { id: '1', nome: 'Fernanda Lima', email: 'fernanda@escola.edu.br', escolaId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', createdAt: new Date() },
-  { id: '2', nome: 'Ricardo Santos', email: 'ricardo@escola.edu.br', escolaId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '2º Ano', createdAt: new Date() },
-  { id: '3', nome: 'Juliana Costa', email: 'juliana@escola.edu.br', escolaId: '1', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '6º Ano', createdAt: new Date() },
-  { id: '4', nome: 'Marcos Oliveira', email: 'marcos@escola.edu.br', escolaId: '1', segmento: 'anos_finais', componente: 'matematica', anoSerie: '6º Ano', createdAt: new Date() },
-  { id: '5', nome: 'Patricia Souza', email: 'patricia@escola.edu.br', escolaId: '1', segmento: 'ensino_medio', componente: 'lingua_portuguesa', anoSerie: '1ª Série', createdAt: new Date() },
+  // Escola 1 - Professores
+  { id: '1', nome: 'Fernanda Lima', email: 'fernanda@escola.edu.br', escolaId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '2', nome: 'Ricardo Santos', email: 'ricardo@escola.edu.br', escolaId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '2º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '3', nome: 'Juliana Costa', email: 'juliana@escola.edu.br', escolaId: '1', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '6º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '4', nome: 'Marcos Oliveira', email: 'marcos@escola.edu.br', escolaId: '1', segmento: 'anos_finais', componente: 'matematica', anoSerie: '6º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '5', nome: 'Patricia Souza', email: 'patricia@escola.edu.br', escolaId: '1', segmento: 'ensino_medio', componente: 'lingua_portuguesa', anoSerie: '1ª Série', cargo: 'professor', createdAt: new Date() },
+  // Escola 1 - Coordenador
+  { id: '17', nome: 'Ana Beatriz Coordenadora', email: 'anabeatriz@escola.edu.br', escolaId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', cargo: 'coordenador', createdAt: new Date() },
   
-  // Escola 2
-  { id: '6', nome: 'Bruno Ferreira', email: 'bruno@escola.edu.br', escolaId: '2', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '3º Ano', createdAt: new Date() },
-  { id: '7', nome: 'Carla Mendes', email: 'carla@escola.edu.br', escolaId: '2', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '4º Ano', createdAt: new Date() },
-  { id: '8', nome: 'Diego Almeida', email: 'diego@escola.edu.br', escolaId: '2', segmento: 'anos_finais', componente: 'matematica', anoSerie: '7º Ano', createdAt: new Date() },
-  { id: '9', nome: 'Elena Rocha', email: 'elena@escola.edu.br', escolaId: '2', segmento: 'ensino_medio', componente: 'matematica', anoSerie: '2ª Série', createdAt: new Date() },
+  // Escola 2 - Professores
+  { id: '6', nome: 'Bruno Ferreira', email: 'bruno@escola.edu.br', escolaId: '2', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '3º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '7', nome: 'Carla Mendes', email: 'carla@escola.edu.br', escolaId: '2', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '4º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '8', nome: 'Diego Almeida', email: 'diego@escola.edu.br', escolaId: '2', segmento: 'anos_finais', componente: 'matematica', anoSerie: '7º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '9', nome: 'Elena Rocha', email: 'elena@escola.edu.br', escolaId: '2', segmento: 'ensino_medio', componente: 'matematica', anoSerie: '2ª Série', cargo: 'professor', createdAt: new Date() },
+  // Escola 2 - Coordenador
+  { id: '18', nome: 'Roberto Coordenador', email: 'roberto@escola.edu.br', escolaId: '2', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '3º Ano', cargo: 'coordenador', createdAt: new Date() },
   
-  // Escola 3
-  { id: '10', nome: 'Felipe Nunes', email: 'felipe@escola.edu.br', escolaId: '3', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '5º Ano', createdAt: new Date() },
-  { id: '11', nome: 'Gabriela Dias', email: 'gabriela@escola.edu.br', escolaId: '3', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '8º Ano', createdAt: new Date() },
-  { id: '12', nome: 'Henrique Castro', email: 'henrique@escola.edu.br', escolaId: '3', segmento: 'anos_finais', componente: 'matematica', anoSerie: '9º Ano', createdAt: new Date() },
+  // Escola 3 - Professores
+  { id: '10', nome: 'Felipe Nunes', email: 'felipe@escola.edu.br', escolaId: '3', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '5º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '11', nome: 'Gabriela Dias', email: 'gabriela@escola.edu.br', escolaId: '3', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '8º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '12', nome: 'Henrique Castro', email: 'henrique@escola.edu.br', escolaId: '3', segmento: 'anos_finais', componente: 'matematica', anoSerie: '9º Ano', cargo: 'professor', createdAt: new Date() },
+  // Escola 3 - Coordenador
+  { id: '19', nome: 'Sandra Coordenadora', email: 'sandra@escola.edu.br', escolaId: '3', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '6º Ano', cargo: 'coordenador', createdAt: new Date() },
   
-  // Escola 4
-  { id: '13', nome: 'Isabela Moura', email: 'isabela@escola.edu.br', escolaId: '4', segmento: 'ensino_medio', componente: 'lingua_portuguesa', anoSerie: '3ª Série', createdAt: new Date() },
-  { id: '14', nome: 'João Pedro', email: 'joaop@escola.edu.br', escolaId: '4', segmento: 'ensino_medio', componente: 'matematica', anoSerie: '3ª Série', createdAt: new Date() },
+  // Escola 4 - Professores
+  { id: '13', nome: 'Isabela Moura', email: 'isabela@escola.edu.br', escolaId: '4', segmento: 'ensino_medio', componente: 'lingua_portuguesa', anoSerie: '3ª Série', cargo: 'professor', createdAt: new Date() },
+  { id: '14', nome: 'João Pedro', email: 'joaop@escola.edu.br', escolaId: '4', segmento: 'ensino_medio', componente: 'matematica', anoSerie: '3ª Série', cargo: 'professor', createdAt: new Date() },
+  // Escola 4 - Coordenador
+  { id: '20', nome: 'Lucia Coordenadora', email: 'lucia@escola.edu.br', escolaId: '4', segmento: 'ensino_medio', componente: 'lingua_portuguesa', anoSerie: '1ª Série', cargo: 'coordenador', createdAt: new Date() },
   
-  // Escola 5
-  { id: '15', nome: 'Karen Silva', email: 'karen@escola.edu.br', escolaId: '5', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', createdAt: new Date() },
-  { id: '16', nome: 'Lucas Martins', email: 'lucas@escola.edu.br', escolaId: '5', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '7º Ano', createdAt: new Date() },
+  // Escola 5 - Professores
+  { id: '15', nome: 'Karen Silva', email: 'karen@escola.edu.br', escolaId: '5', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', cargo: 'professor', createdAt: new Date() },
+  { id: '16', nome: 'Lucas Martins', email: 'lucas@escola.edu.br', escolaId: '5', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '7º Ano', cargo: 'professor', createdAt: new Date() },
+  // Escola 5 - Coordenador
+  { id: '21', nome: 'Paulo Coordenador', email: 'paulo@escola.edu.br', escolaId: '5', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '2º Ano', cargo: 'coordenador', createdAt: new Date() },
 ];
+
+export const cargoLabels: Record<string, string> = {
+  professor: 'Professor',
+  coordenador: 'Coordenador',
+};
 
 export const aaps: AAP[] = [
   { id: '1', nome: 'Maria Silva', email: 'maria.aap@programa.edu.br', telefone: '(11) 91234-5678', tipo: 'anos_iniciais', escolasIds: ['1', '2', '5'], userId: '2', createdAt: new Date() },
@@ -63,6 +78,11 @@ export const programacoes: Programacao[] = [
   { id: '8', tipo: 'visita', titulo: 'Acompanhamento Mensal', descricao: 'Visita mensal de acompanhamento', data: getDate(1), horarioInicio: '08:00', horarioFim: '11:00', escolaId: '1', aapId: '3', segmento: 'anos_finais', componente: 'matematica', anoSerie: '6º Ano', status: 'prevista', createdAt: new Date() },
   { id: '9', tipo: 'visita', titulo: 'Visita Técnica', descricao: 'Avaliação de metodologias', data: getDate(3), horarioInicio: '14:00', horarioFim: '17:00', escolaId: '5', aapId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', status: 'prevista', createdAt: new Date() },
   { id: '10', tipo: 'visita', titulo: 'Visita de Suporte', descricao: 'Suporte pedagógico aos professores', data: getDate(8), horarioInicio: '08:00', horarioFim: '12:00', escolaId: '4', aapId: '3', segmento: 'ensino_medio', componente: 'matematica', anoSerie: '3ª Série', status: 'prevista', createdAt: new Date() },
+  
+  // Acompanhamento de Aula
+  { id: '11', tipo: 'acompanhamento_aula', titulo: 'Acompanhamento de Aula - 1º Ano', descricao: 'Observação e avaliação de aula', data: getDate(2), horarioInicio: '08:00', horarioFim: '10:00', escolaId: '1', aapId: '1', segmento: 'anos_iniciais', componente: 'polivalente', anoSerie: '1º Ano', status: 'prevista', createdAt: new Date() },
+  { id: '12', tipo: 'acompanhamento_aula', titulo: 'Acompanhamento de Aula - LP 6º Ano', descricao: 'Observação de aula de Língua Portuguesa', data: getDate(4), horarioInicio: '14:00', horarioFim: '16:00', escolaId: '1', aapId: '2', segmento: 'anos_finais', componente: 'lingua_portuguesa', anoSerie: '6º Ano', status: 'prevista', createdAt: new Date() },
+  { id: '13', tipo: 'acompanhamento_aula', titulo: 'Acompanhamento de Aula - Mat 7º Ano', descricao: 'Observação de aula de Matemática', data: getDate(6), horarioInicio: '08:00', horarioFim: '10:00', escolaId: '2', aapId: '3', segmento: 'anos_finais', componente: 'matematica', anoSerie: '7º Ano', status: 'prevista', createdAt: new Date() },
 ];
 
 export const registrosAcao: RegistroAcao[] = [
@@ -105,4 +125,10 @@ export const anoSerieOptions = {
   anos_iniciais: ['1º Ano', '2º Ano', '3º Ano', '4º Ano', '5º Ano'],
   anos_finais: ['6º Ano', '7º Ano', '8º Ano', '9º Ano'],
   ensino_medio: ['1ª Série', '2ª Série', '3ª Série'],
+};
+
+export const tipoAcaoLabels: Record<string, string> = {
+  formacao: 'Formação',
+  visita: 'Visita',
+  acompanhamento_aula: 'Acompanhamento de Aula',
 };

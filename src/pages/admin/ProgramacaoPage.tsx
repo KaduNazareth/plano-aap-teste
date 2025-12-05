@@ -134,12 +134,12 @@ export default function ProgramacaoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <label className="form-label">Tipo de Ação *</label>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, tipo: 'formacao' })}
                         className={cn(
-                          "flex-1 py-3 rounded-lg border-2 font-medium transition-all",
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
                           formData.tipo === 'formacao'
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border hover:border-muted-foreground"
@@ -151,13 +151,25 @@ export default function ProgramacaoPage() {
                         type="button"
                         onClick={() => setFormData({ ...formData, tipo: 'visita' })}
                         className={cn(
-                          "flex-1 py-3 rounded-lg border-2 font-medium transition-all",
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
                           formData.tipo === 'visita'
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border hover:border-muted-foreground"
                         )}
                       >
                         Visita
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, tipo: 'acompanhamento_aula' })}
+                        className={cn(
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
+                          formData.tipo === 'acompanhamento_aula'
+                            ? "border-warning bg-warning/10 text-warning"
+                            : "border-border hover:border-muted-foreground"
+                        )}
+                      >
+                        Acompanhamento de Aula
                       </button>
                     </div>
                   </div>

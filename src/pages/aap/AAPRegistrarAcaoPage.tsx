@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { programacoes, escolas, professores, aaps, segmentoLabels, componenteLabels } from '@/data/mockData';
-import { Programacao, Professor } from '@/types';
+import { programacoes, escolas, professores, aaps, segmentoLabels, componenteLabels, cargoLabels } from '@/data/mockData';
+import { Programacao, Professor, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -15,7 +15,9 @@ import {
   TrendingUp, 
   AlertCircle,
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  Star,
+  ClipboardCheck
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -35,10 +37,30 @@ interface PresencaItem {
   presente: boolean;
 }
 
+interface AvaliacaoAulaItem {
+  professorId: string;
+  clareza_objetivos: NotaAvaliacao;
+  dominio_conteudo: NotaAvaliacao;
+  estrategias_didaticas: NotaAvaliacao;
+  engajamento_turma: NotaAvaliacao;
+  gestao_tempo: NotaAvaliacao;
+  observacoes: string;
+}
+
+const dimensoesAvaliacao = [
+  { key: 'clareza_objetivos', label: 'Clareza dos objetivos' },
+  { key: 'dominio_conteudo', label: 'Domínio do conteúdo' },
+  { key: 'estrategias_didaticas', label: 'Estratégias didáticas' },
+  { key: 'engajamento_turma', label: 'Engajamento da turma' },
+  { key: 'gestao_tempo', label: 'Gestão do tempo' },
+] as const;
+
 export default function AAPRegistrarAcaoPage() {
   const { user } = useAuth();
   const [selectedProgramacao, setSelectedProgramacao] = useState<Programacao | null>(null);
   const [presencaList, setPresencaList] = useState<PresencaItem[]>([]);
+  const [avaliacaoList, setAvaliacaoList] = useState<AvaliacaoAulaItem[]>([]);
+  const [selectedProfessorAvaliacao, setSelectedProfessorAvaliacao] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState('');
   const [avancos, setAvancos] = useState('');
   const [dificuldades, setDificuldades] = useState('');
@@ -59,7 +81,7 @@ export default function AAPRegistrarAcaoPage() {
     ).sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
   }, [currentAAP]);
 
-  // Get professors for selected escola and segmento
+  // Get professors for selected escola and segmento (including coordenadores)
   const availableProfessors = useMemo(() => {
     if (!selectedProgramacao) return [];
     return professores.filter(p => 
@@ -68,14 +90,35 @@ export default function AAPRegistrarAcaoPage() {
     );
   }, [selectedProgramacao]);
 
+  const isAcompanhamentoAula = selectedProgramacao?.tipo === 'acompanhamento_aula';
+
   const handleSelectProgramacao = (prog: Programacao) => {
     setSelectedProgramacao(prog);
-    // Initialize presence list with all professors as absent
+    // Get professors for this escola and segmento
     const profs = professores.filter(p => 
       p.escolaId === prog.escolaId &&
       p.segmento === prog.segmento
     );
-    setPresencaList(profs.map(p => ({ professorId: p.id, presente: false })));
+    
+    if (prog.tipo === 'acompanhamento_aula') {
+      // Initialize avaliação list
+      setAvaliacaoList(profs.map(p => ({
+        professorId: p.id,
+        clareza_objetivos: 3,
+        dominio_conteudo: 3,
+        estrategias_didaticas: 3,
+        engajamento_turma: 3,
+        gestao_tempo: 3,
+        observacoes: '',
+      })));
+      setPresencaList([]);
+    } else {
+      // Initialize presence list with all professors as absent
+      setPresencaList(profs.map(p => ({ professorId: p.id, presente: false })));
+      setAvaliacaoList([]);
+    }
+    
+    setSelectedProfessorAvaliacao(null);
     setObservacoes('');
     setAvancos('');
     setDificuldades('');
@@ -96,6 +139,16 @@ export default function AAPRegistrarAcaoPage() {
     setPresencaList(prev => prev.map(item => ({ ...item, presente })));
   };
 
+  const handleUpdateAvaliacao = (professorId: string, dimensao: keyof AvaliacaoAulaItem, valor: NotaAvaliacao | string) => {
+    setAvaliacaoList(prev =>
+      prev.map(item =>
+        item.professorId === professorId
+          ? { ...item, [dimensao]: valor }
+          : item
+      )
+    );
+  };
+
   const handleSubmit = async () => {
     if (!selectedProgramacao) return;
     
@@ -104,15 +157,22 @@ export default function AAPRegistrarAcaoPage() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const presentes = presencaList.filter(p => p.presente).length;
-    const total = presencaList.length;
-    
-    toast.success('Registro salvo com sucesso!', {
-      description: `${presentes} de ${total} professores presentes`
-    });
+    if (isAcompanhamentoAula) {
+      const avaliadosCount = avaliacaoList.length;
+      toast.success('Avaliação de acompanhamento salva com sucesso!', {
+        description: `${avaliadosCount} professor(es)/coordenador(es) avaliado(s)`
+      });
+    } else {
+      const presentes = presencaList.filter(p => p.presente).length;
+      const total = presencaList.length;
+      toast.success('Registro salvo com sucesso!', {
+        description: `${presentes} de ${total} presentes`
+      });
+    }
     
     setSelectedProgramacao(null);
     setPresencaList([]);
+    setAvaliacaoList([]);
     setIsSubmitting(false);
   };
 
@@ -120,15 +180,41 @@ export default function AAPRegistrarAcaoPage() {
     return escolas.find(e => e.id === escolaId)?.nome || '-';
   };
 
+  const getTipoLabel = (tipo: string) => {
+    switch (tipo) {
+      case 'formacao': return 'Formação';
+      case 'visita': return 'Visita';
+      case 'acompanhamento_aula': return 'Acompanhamento de Aula';
+      default: return tipo;
+    }
+  };
+
+  const getTipoVariant = (tipo: string) => {
+    switch (tipo) {
+      case 'formacao': return 'primary';
+      case 'visita': return 'info';
+      case 'acompanhamento_aula': return 'warning';
+      default: return 'default';
+    }
+  };
+
   const presentes = presencaList.filter(p => p.presente).length;
   const totalProfessores = presencaList.length;
+
+  const selectedProfessorData = selectedProfessorAvaliacao 
+    ? professores.find(p => p.id === selectedProfessorAvaliacao)
+    : null;
+
+  const selectedAvaliacaoData = selectedProfessorAvaliacao
+    ? avaliacaoList.find(a => a.professorId === selectedProfessorAvaliacao)
+    : null;
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="page-header">Registrar Ação</h1>
-        <p className="page-subtitle">Selecione uma programação e registre a presença dos professores</p>
+        <p className="page-subtitle">Selecione uma programação e registre a presença ou avaliação</p>
       </div>
 
       {/* Pending Programações */}
@@ -158,8 +244,8 @@ export default function AAPRegistrarAcaoPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <StatusBadge variant={prog.tipo === 'formacao' ? 'primary' : 'info'}>
-                        {prog.tipo === 'formacao' ? 'Formação' : 'Visita'}
+                      <StatusBadge variant={getTipoVariant(prog.tipo) as 'primary' | 'info' | 'warning' | 'default'}>
+                        {getTipoLabel(prog.tipo)}
                       </StatusBadge>
                       <span className="text-sm text-muted-foreground">
                         {segmentoLabels[prog.segmento]}
@@ -190,19 +276,19 @@ export default function AAPRegistrarAcaoPage() {
       </div>
 
       {/* Registration Modal */}
-      <Dialog open={!!selectedProgramacao} onOpenChange={() => setSelectedProgramacao(null)}>
+      <Dialog open={!!selectedProgramacao && !isAcompanhamentoAula} onOpenChange={() => setSelectedProgramacao(null)}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registrar Ação</DialogTitle>
           </DialogHeader>
 
-          {selectedProgramacao && (
+          {selectedProgramacao && !isAcompanhamentoAula && (
             <div className="space-y-6 mt-4">
               {/* Action Info */}
               <div className="p-4 rounded-xl bg-muted/50 space-y-2">
                 <div className="flex items-center gap-2">
-                  <StatusBadge variant={selectedProgramacao.tipo === 'formacao' ? 'primary' : 'info'}>
-                    {selectedProgramacao.tipo === 'formacao' ? 'Formação' : 'Visita'}
+                  <StatusBadge variant={getTipoVariant(selectedProgramacao.tipo) as 'primary' | 'info' | 'warning' | 'default'}>
+                    {getTipoLabel(selectedProgramacao.tipo)}
                   </StatusBadge>
                   <span className="font-medium">{selectedProgramacao.titulo}</span>
                 </div>
@@ -260,7 +346,7 @@ export default function AAPRegistrarAcaoPage() {
                 {availableProfessors.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground border border-dashed border-border rounded-lg">
                     <Users size={32} className="mx-auto mb-2 opacity-50" />
-                    <p>Nenhum professor encontrado para este segmento</p>
+                    <p>Nenhum professor/coordenador encontrado para este segmento</p>
                   </div>
                 ) : (
                   <div className="border border-border rounded-lg overflow-hidden">
@@ -284,7 +370,7 @@ export default function AAPRegistrarAcaoPage() {
                             <div>
                               <p className="text-sm font-medium">{professor.nome}</p>
                               <p className="text-xs text-muted-foreground">
-                                {componenteLabels[professor.componente]} • {professor.anoSerie}
+                                {cargoLabels[professor.cargo]} • {componenteLabels[professor.componente]} • {professor.anoSerie}
                               </p>
                             </div>
                           </div>
@@ -352,6 +438,177 @@ export default function AAPRegistrarAcaoPage() {
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Salvando...' : 'Salvar Registro'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Acompanhamento de Aula Modal */}
+      <Dialog open={!!selectedProgramacao && isAcompanhamentoAula} onOpenChange={() => setSelectedProgramacao(null)}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="text-warning" size={20} />
+              Acompanhamento de Aula
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedProgramacao && isAcompanhamentoAula && (
+            <div className="space-y-6 mt-4">
+              {/* Action Info */}
+              <div className="p-4 rounded-xl bg-muted/50 space-y-2">
+                <div className="flex items-center gap-2">
+                  <StatusBadge variant="warning">
+                    Acompanhamento de Aula
+                  </StatusBadge>
+                  <span className="font-medium">{selectedProgramacao.titulo}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>{format(new Date(selectedProgramacao.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                  <span>•</span>
+                  <span>{getEscolaNome(selectedProgramacao.escolaId)}</span>
+                  <span>•</span>
+                  <span>{segmentoLabels[selectedProgramacao.segmento]} - {selectedProgramacao.anoSerie}</span>
+                </div>
+              </div>
+
+              {/* Turma */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Turma (opcional)</label>
+                <input
+                  type="text"
+                  value={turma}
+                  onChange={(e) => setTurma(e.target.value)}
+                  placeholder="Ex: Turma A"
+                  className="input-field"
+                />
+              </div>
+
+              {/* Professor Selection */}
+              <div>
+                <h4 className="font-medium flex items-center gap-2 mb-3">
+                  <Users size={18} className="text-primary" />
+                  Selecione o Professor/Coordenador para avaliar
+                </h4>
+
+                {availableProfessors.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground border border-dashed border-border rounded-lg">
+                    <Users size={32} className="mx-auto mb-2 opacity-50" />
+                    <p>Nenhum professor/coordenador encontrado para este segmento</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {availableProfessors.map((professor) => {
+                      const avaliacao = avaliacaoList.find(a => a.professorId === professor.id);
+                      const mediaNotas = avaliacao 
+                        ? ((avaliacao.clareza_objetivos + avaliacao.dominio_conteudo + avaliacao.estrategias_didaticas + avaliacao.engajamento_turma + avaliacao.gestao_tempo) / 5).toFixed(1)
+                        : '3.0';
+                      
+                      return (
+                        <button
+                          key={professor.id}
+                          onClick={() => setSelectedProfessorAvaliacao(professor.id)}
+                          className={`p-4 rounded-xl border transition-all text-left hover:border-primary hover:bg-primary/5 ${
+                            selectedProfessorAvaliacao === professor.id 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-medium">{professor.nome}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {cargoLabels[professor.cargo]} • {componenteLabels[professor.componente]}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 text-warning">
+                              <Star size={14} fill="currentColor" />
+                              <span className="text-sm font-medium">{mediaNotas}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Avaliação Form */}
+              {selectedProfessorData && selectedAvaliacaoData && (
+                <div className="p-4 rounded-xl border border-border bg-card space-y-4">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Star size={18} className="text-warning" />
+                    Avaliação de {selectedProfessorData.nome}
+                    <StatusBadge variant="info" size="sm">{cargoLabels[selectedProfessorData.cargo]}</StatusBadge>
+                  </h4>
+
+                  <div className="space-y-4">
+                    {dimensoesAvaliacao.map(({ key, label }) => (
+                      <div key={key} className="space-y-2">
+                        <label className="block text-sm font-medium">{label}</label>
+                        <div className="flex flex-wrap gap-2">
+                          {([1, 2, 3, 4, 5] as NotaAvaliacao[]).map((nota) => (
+                            <button
+                              key={nota}
+                              type="button"
+                              onClick={() => handleUpdateAvaliacao(selectedProfessorData.id, key, nota)}
+                              className={`flex-1 min-w-[100px] p-3 rounded-lg border transition-all text-center ${
+                                selectedAvaliacaoData[key] === nota
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border hover:border-primary hover:bg-primary/5'
+                              }`}
+                            >
+                              <div className="font-bold text-lg">{nota}</div>
+                              <div className="text-xs opacity-80">{notaAvaliacaoLabels[nota]}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Observações sobre este professor/coordenador
+                      </label>
+                      <Textarea
+                        value={selectedAvaliacaoData.observacoes}
+                        onChange={(e) => handleUpdateAvaliacao(selectedProfessorData.id, 'observacoes', e.target.value as unknown as NotaAvaliacao)}
+                        placeholder="Observações específicas sobre a aula observada..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* General Observations */}
+              <div>
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <FileText size={16} className="text-muted-foreground" />
+                  Observações Gerais
+                </label>
+                <Textarea
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  placeholder="Observações gerais sobre o acompanhamento..."
+                  rows={3}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedProgramacao(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Salvando...' : 'Salvar Avaliação'}
                 </Button>
               </DialogFooter>
             </div>
