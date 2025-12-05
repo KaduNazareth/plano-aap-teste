@@ -2,8 +2,8 @@ import { useState, useRef } from 'react';
 import { Plus, Search, Edit2, Trash2, Upload, Download, FileSpreadsheet } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { professores as initialProfessores, escolas, segmentoLabels, componenteLabels, anoSerieOptions } from '@/data/mockData';
-import { Professor, Segmento, ComponenteCurricular } from '@/types';
+import { professores as initialProfessores, escolas, segmentoLabels, componenteLabels, anoSerieOptions, cargoLabels } from '@/data/mockData';
+import { Professor, Segmento, ComponenteCurricular, CargoProfessor } from '@/types';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -33,6 +33,7 @@ export default function ProfessoresPage() {
     segmento: 'anos_iniciais' as Segmento,
     componente: 'polivalente' as ComponenteCurricular,
     anoSerie: '',
+    cargo: 'professor' as CargoProfessor,
   });
 
   const filteredProfessores = professores.filter(prof => {
@@ -54,6 +55,7 @@ export default function ProfessoresPage() {
         segmento: professor.segmento,
         componente: professor.componente,
         anoSerie: professor.anoSerie,
+        cargo: professor.cargo,
       });
     } else {
       setEditingProfessor(null);
@@ -65,6 +67,7 @@ export default function ProfessoresPage() {
         segmento: 'anos_iniciais',
         componente: 'polivalente',
         anoSerie: '',
+        cargo: 'professor',
       });
     }
     setIsDialogOpen(true);
@@ -122,6 +125,7 @@ export default function ProfessoresPage() {
           segmento: (row['Segmento'] || row['segmento'] || 'anos_iniciais') as Segmento,
           componente: (row['Componente'] || row['componente'] || 'polivalente') as ComponenteCurricular,
           anoSerie: String(row['AnoSerie'] || row['anoSerie'] || '1º Ano'),
+          cargo: (row['Cargo'] || row['cargo'] || 'professor') as CargoProfessor,
           createdAt: new Date(),
         }));
 
@@ -138,7 +142,7 @@ export default function ProfessoresPage() {
 
   const handleExportTemplate = () => {
     const template = [
-      { Nome: 'Maria Silva', Email: 'maria@escola.edu.br', Telefone: '(11) 99999-9999', EscolaId: '1', Segmento: 'anos_iniciais', Componente: 'polivalente', AnoSerie: '1º Ano' },
+      { Nome: 'Maria Silva', Email: 'maria@escola.edu.br', Telefone: '(11) 99999-9999', EscolaId: '1', Segmento: 'anos_iniciais', Componente: 'polivalente', AnoSerie: '1º Ano', Cargo: 'professor' },
     ];
     
     const ws = XLSX.utils.json_to_sheet(template);
@@ -159,6 +163,7 @@ export default function ProfessoresPage() {
       Segmento: segmentoLabels[prof.segmento],
       Componente: componenteLabels[prof.componente],
       AnoSerie: prof.anoSerie,
+      Cargo: cargoLabels[prof.cargo],
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -173,12 +178,21 @@ export default function ProfessoresPage() {
   const columns = [
     {
       key: 'nome',
-      header: 'Professor(a)',
+      header: 'Nome',
       render: (prof: Professor) => (
         <div>
           <p className="font-medium text-foreground">{prof.nome}</p>
           {prof.email && <p className="text-sm text-muted-foreground">{prof.email}</p>}
         </div>
+      ),
+    },
+    {
+      key: 'cargo',
+      header: 'Cargo',
+      render: (prof: Professor) => (
+        <StatusBadge variant={prof.cargo === 'coordenador' ? 'warning' : 'default'}>
+          {cargoLabels[prof.cargo]}
+        </StatusBadge>
       ),
     },
     {
@@ -390,6 +404,19 @@ export default function ProfessoresPage() {
                       <option value="">Selecione o ano/série</option>
                       {anoSerieOptions[formData.segmento]?.map(ano => (
                         <option key={ano} value={ano}>{ano}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="form-label">Cargo *</label>
+                    <select
+                      value={formData.cargo}
+                      onChange={(e) => setFormData({ ...formData, cargo: e.target.value as CargoProfessor })}
+                      className="input-field"
+                      required
+                    >
+                      {Object.entries(cargoLabels).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>

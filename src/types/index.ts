@@ -4,9 +4,13 @@ export type Segmento = 'anos_iniciais' | 'anos_finais' | 'ensino_medio';
 
 export type ComponenteCurricular = 'polivalente' | 'lingua_portuguesa' | 'matematica';
 
-export type TipoAcao = 'visita' | 'formacao';
+export type TipoAcao = 'visita' | 'formacao' | 'acompanhamento_aula';
 
 export type StatusAcao = 'prevista' | 'realizada' | 'cancelada';
+
+export type CargoProfessor = 'professor' | 'coordenador';
+
+export type NotaAvaliacao = 1 | 2 | 3 | 4 | 5;
 
 export interface User {
   id: string;
@@ -34,6 +38,7 @@ export interface Professor {
   segmento: Segmento;
   componente: ComponenteCurricular;
   anoSerie: string;
+  cargo: CargoProfessor;
   createdAt: Date;
 }
 
@@ -88,6 +93,26 @@ export interface Presenca {
   professorId: string;
   presente: boolean;
 }
+
+export interface AvaliacaoAula {
+  id: string;
+  registroAcaoId: string;
+  professorId: string;
+  clareza_objetivos: NotaAvaliacao;
+  dominio_conteudo: NotaAvaliacao;
+  estrategias_didaticas: NotaAvaliacao;
+  engajamento_turma: NotaAvaliacao;
+  gestao_tempo: NotaAvaliacao;
+  observacoes?: string;
+}
+
+export const notaAvaliacaoLabels: Record<NotaAvaliacao, string> = {
+  1: 'Muito insatisfatório',
+  2: 'Insatisfatório',
+  3: 'Adequado',
+  4: 'Bom',
+  5: 'Excelente',
+};
 
 export interface DashboardStats {
   totalEscolas: number;
