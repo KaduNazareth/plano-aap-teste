@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { programacoes as initialProgramacoes, escolas, aaps, segmentoLabels, componenteLabels, anoSerieOptions } from '@/data/mockData';
+import { programacoes as initialProgramacoes, escolas, aaps, segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels } from '@/data/mockData';
 import { Programacao, TipoAcao, StatusAcao, Segmento, ComponenteCurricular } from '@/types';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
 export default function ProgramacaoPage() {
@@ -21,6 +25,17 @@ export default function ProgramacaoPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  
+  // Estado para gerenciamento de ação
+  const [selectedProgramacao, setSelectedProgramacao] = useState<Programacao | null>(null);
+  const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+  const [acaoRealizada, setAcaoRealizada] = useState<boolean | null>(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [reagendar, setReagendar] = useState(false);
+  const [novaData, setNovaData] = useState('');
+  const [novoHorarioInicio, setNovoHorarioInicio] = useState('');
+  const [novoHorarioFim, setNovoHorarioFim] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     tipo: 'formacao' as TipoAcao,
@@ -84,6 +99,73 @@ export default function ProgramacaoPage() {
       componente: 'polivalente',
       anoSerie: '',
     });
+  };
+
+  const handleOpenManageDialog = (prog: Programacao) => {
+    setSelectedProgramacao(prog);
+    setAcaoRealizada(null);
+    setMotivoCancelamento('');
+    setReagendar(false);
+    setNovaData('');
+    setNovoHorarioInicio('');
+    setNovoHorarioFim('');
+    setIsManageDialogOpen(true);
+  };
+
+  const handleManageSubmit = async () => {
+    if (!selectedProgramacao || acaoRealizada === null) return;
+    
+    if (!acaoRealizada && !motivoCancelamento.trim()) {
+      toast.error('Informe o motivo do cancelamento');
+      return;
+    }
+    
+    if (reagendar && (!novaData || !novoHorarioInicio || !novoHorarioFim)) {
+      toast.error('Preencha os dados do reagendamento');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Update programacao status
+    setProgramacoes(prev => prev.map(p => {
+      if (p.id === selectedProgramacao.id) {
+        return {
+          ...p,
+          status: acaoRealizada ? 'realizada' : 'cancelada',
+          motivoCancelamento: acaoRealizada ? undefined : motivoCancelamento,
+        };
+      }
+      return p;
+    }));
+    
+    // If reagendar, create new programacao
+    if (reagendar && !acaoRealizada) {
+      const newProgramacao: Programacao = {
+        ...selectedProgramacao,
+        id: String(Date.now()),
+        data: new Date(novaData),
+        horarioInicio: novoHorarioInicio,
+        horarioFim: novoHorarioFim,
+        status: 'prevista',
+        createdAt: new Date(),
+      };
+      setProgramacoes(prev => [...prev, newProgramacao]);
+      toast.success('Ação cancelada e reagendada com sucesso!', {
+        description: `Nova data: ${format(new Date(novaData), "dd/MM/yyyy", { locale: ptBR })}`
+      });
+    } else if (acaoRealizada) {
+      toast.success('Ação marcada como realizada!');
+    } else {
+      toast.success('Ação marcada como cancelada');
+    }
+    
+    setIsManageDialogOpen(false);
+    setSelectedProgramacao(null);
+    setIsSubmitting(false);
   };
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -438,8 +520,8 @@ export default function ProgramacaoPage() {
                       >
                         <div className="flex items-start justify-between">
                           <h4 className="font-medium text-foreground">{event.titulo}</h4>
-                          <StatusBadge variant={event.tipo === 'formacao' ? 'primary' : 'info'}>
-                            {event.tipo === 'formacao' ? 'Formação' : 'Visita'}
+                          <StatusBadge variant={event.tipo === 'formacao' ? 'primary' : event.tipo === 'acompanhamento_aula' ? 'warning' : 'info'}>
+                            {tipoAcaoLabels[event.tipo]}
                           </StatusBadge>
                         </div>
                         <div className="space-y-1 text-sm text-muted-foreground">
@@ -454,11 +536,28 @@ export default function ProgramacaoPage() {
                           <p>AAP: {aap?.nome}</p>
                           <p>{segmentoLabels[event.segmento]} • {event.anoSerie}</p>
                         </div>
-                        <StatusBadge 
-                          variant={event.status === 'realizada' ? 'success' : event.status === 'prevista' ? 'warning' : 'error'}
-                        >
-                          {event.status === 'realizada' ? 'Realizada' : event.status === 'prevista' ? 'Prevista' : 'Cancelada'}
-                        </StatusBadge>
+                        <div className="flex items-center justify-between pt-2">
+                          <StatusBadge 
+                            variant={event.status === 'realizada' ? 'success' : event.status === 'prevista' ? 'warning' : 'error'}
+                          >
+                            {event.status === 'realizada' ? 'Realizada' : event.status === 'prevista' ? 'Prevista' : 'Cancelada'}
+                          </StatusBadge>
+                          {event.status === 'prevista' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenManageDialog(event)}
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Gerenciar
+                            </Button>
+                          )}
+                        </div>
+                        {event.motivoCancelamento && (
+                          <div className="text-xs text-muted-foreground bg-destructive/10 p-2 rounded">
+                            <span className="font-medium">Motivo:</span> {event.motivoCancelamento}
+                          </div>
+                        )}
                       </div>
                     );
                   })
@@ -496,20 +595,37 @@ export default function ProgramacaoPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium text-foreground">{event.titulo}</h4>
-                            <StatusBadge variant={event.tipo === 'formacao' ? 'primary' : 'info'} size="sm">
-                              {event.tipo === 'formacao' ? 'Formação' : 'Visita'}
+                            <StatusBadge variant={event.tipo === 'formacao' ? 'primary' : event.tipo === 'acompanhamento_aula' ? 'warning' : 'info'} size="sm">
+                              {tipoAcaoLabels[event.tipo]}
                             </StatusBadge>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {escola?.nome} • {aap?.nome} • {event.horarioInicio} - {event.horarioFim}
                           </p>
+                          {event.motivoCancelamento && (
+                            <p className="text-xs text-destructive mt-1">
+                              Motivo: {event.motivoCancelamento}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <StatusBadge 
-                        variant={event.status === 'realizada' ? 'success' : event.status === 'prevista' ? 'warning' : 'error'}
-                      >
-                        {event.status === 'realizada' ? 'Realizada' : event.status === 'prevista' ? 'Prevista' : 'Cancelada'}
-                      </StatusBadge>
+                      <div className="flex items-center gap-3">
+                        <StatusBadge 
+                          variant={event.status === 'realizada' ? 'success' : event.status === 'prevista' ? 'warning' : 'error'}
+                        >
+                          {event.status === 'realizada' ? 'Realizada' : event.status === 'prevista' ? 'Prevista' : 'Cancelada'}
+                        </StatusBadge>
+                        {event.status === 'prevista' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenManageDialog(event)}
+                          >
+                            <Edit size={14} className="mr-1" />
+                            Gerenciar
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -517,6 +633,144 @@ export default function ProgramacaoPage() {
           </div>
         </div>
       )}
+
+      {/* Manage Action Dialog */}
+      <Dialog open={isManageDialogOpen} onOpenChange={setIsManageDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Ação</DialogTitle>
+          </DialogHeader>
+
+          {selectedProgramacao && (
+            <div className="space-y-6 mt-4">
+              {/* Action Info */}
+              <div className="p-4 rounded-xl bg-muted/50 space-y-2">
+                <div className="flex items-center gap-2">
+                  <StatusBadge variant={selectedProgramacao.tipo === 'formacao' ? 'primary' : selectedProgramacao.tipo === 'acompanhamento_aula' ? 'warning' : 'info'}>
+                    {tipoAcaoLabels[selectedProgramacao.tipo]}
+                  </StatusBadge>
+                  <span className="font-medium">{selectedProgramacao.titulo}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span>{format(new Date(selectedProgramacao.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                  <span>•</span>
+                  <span>{escolas.find(e => e.id === selectedProgramacao.escolaId)?.nome}</span>
+                </div>
+              </div>
+
+              {/* Status da Ação */}
+              <div>
+                <label className="block text-sm font-medium mb-3">A ação foi realizada? *</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setAcaoRealizada(true); setMotivoCancelamento(''); setReagendar(false); }}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === true
+                        ? 'border-success bg-success/10 text-success'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <CheckCircle2 size={18} />
+                    Sim
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAcaoRealizada(false)}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === false
+                        ? 'border-destructive bg-destructive/10 text-destructive'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <XCircle size={18} />
+                    Não
+                  </button>
+                </div>
+              </div>
+
+              {/* Motivo Cancelamento */}
+              {acaoRealizada === false && (
+                <div className="space-y-4 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} className="text-destructive" />
+                      Motivo / Justificativa *
+                    </label>
+                    <Textarea
+                      value={motivoCancelamento}
+                      onChange={(e) => setMotivoCancelamento(e.target.value)}
+                      placeholder="Informe o motivo pelo qual a ação não foi realizada..."
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Opção de Reagendar */}
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="admin-reagendar" 
+                      checked={reagendar}
+                      onCheckedChange={(checked) => setReagendar(checked as boolean)}
+                    />
+                    <label htmlFor="admin-reagendar" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <CalendarPlus size={16} className="text-primary" />
+                      Reagendar esta ação
+                    </label>
+                  </div>
+
+                  {reagendar && (
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Nova Data *</label>
+                        <input
+                          type="date"
+                          value={novaData}
+                          onChange={(e) => setNovaData(e.target.value)}
+                          className="input-field text-sm"
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Início *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioInicio}
+                          onChange={(e) => setNovoHorarioInicio(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Fim *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioFim}
+                          onChange={(e) => setNovoHorarioFim(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsManageDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleManageSubmit}
+                  disabled={isSubmitting || acaoRealizada === null}
+                >
+                  {isSubmitting ? 'Salvando...' : 'Salvar'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

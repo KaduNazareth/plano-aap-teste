@@ -67,6 +67,8 @@ export interface Programacao {
   componente: ComponenteCurricular;
   anoSerie: string;
   status: StatusAcao;
+  motivoCancelamento?: string;
+  reagendadoPara?: Date;
   createdAt: Date;
 }
 

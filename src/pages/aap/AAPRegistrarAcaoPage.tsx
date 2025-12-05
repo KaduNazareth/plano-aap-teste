@@ -17,7 +17,9 @@ import {
   ChevronRight,
   CheckCircle2,
   Star,
-  ClipboardCheck
+  ClipboardCheck,
+  CalendarPlus,
+  XCircle
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +68,12 @@ export default function AAPRegistrarAcaoPage() {
   const [dificuldades, setDificuldades] = useState('');
   const [turma, setTurma] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acaoRealizada, setAcaoRealizada] = useState<boolean | null>(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [reagendar, setReagendar] = useState(false);
+  const [novaData, setNovaData] = useState('');
+  const [novoHorarioInicio, setNovoHorarioInicio] = useState('');
+  const [novoHorarioFim, setNovoHorarioFim] = useState('');
 
   // Get current AAP based on logged user
   const currentAAP = useMemo(() => {
@@ -123,6 +131,12 @@ export default function AAPRegistrarAcaoPage() {
     setAvancos('');
     setDificuldades('');
     setTurma('');
+    setAcaoRealizada(null);
+    setMotivoCancelamento('');
+    setReagendar(false);
+    setNovaData('');
+    setNovoHorarioInicio('');
+    setNovoHorarioFim('');
   };
 
   const handleTogglePresenca = (professorId: string) => {
@@ -150,14 +164,34 @@ export default function AAPRegistrarAcaoPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedProgramacao) return;
+    if (!selectedProgramacao || acaoRealizada === null) return;
+    
+    if (!acaoRealizada && !motivoCancelamento.trim()) {
+      toast.error('Informe o motivo do cancelamento');
+      return;
+    }
+    
+    if (reagendar && (!novaData || !novoHorarioInicio || !novoHorarioFim)) {
+      toast.error('Preencha os dados do reagendamento');
+      return;
+    }
     
     setIsSubmitting(true);
     
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (isAcompanhamentoAula) {
+    if (!acaoRealizada) {
+      if (reagendar) {
+        toast.success('Ação cancelada e reagendada com sucesso!', {
+          description: `Nova data: ${format(new Date(novaData), "dd/MM/yyyy", { locale: ptBR })}`
+        });
+      } else {
+        toast.success('Ação marcada como não realizada', {
+          description: 'Motivo registrado com sucesso'
+        });
+      }
+    } else if (isAcompanhamentoAula) {
       const avaliadosCount = avaliacaoList.length;
       toast.success('Avaliação de acompanhamento salva com sucesso!', {
         description: `${avaliadosCount} professor(es)/coordenador(es) avaliado(s)`
@@ -173,6 +207,12 @@ export default function AAPRegistrarAcaoPage() {
     setSelectedProgramacao(null);
     setPresencaList([]);
     setAvaliacaoList([]);
+    setAcaoRealizada(null);
+    setMotivoCancelamento('');
+    setReagendar(false);
+    setNovaData('');
+    setNovoHorarioInicio('');
+    setNovoHorarioFim('');
     setIsSubmitting(false);
   };
 
@@ -301,20 +341,117 @@ export default function AAPRegistrarAcaoPage() {
                 </div>
               </div>
 
-              {/* Turma */}
+              {/* Status da Ação */}
               <div>
-                <label className="block text-sm font-medium mb-2">Turma (opcional)</label>
-                <input
-                  type="text"
-                  value={turma}
-                  onChange={(e) => setTurma(e.target.value)}
-                  placeholder="Ex: Turma A"
-                  className="input-field"
-                />
+                <label className="block text-sm font-medium mb-3">A ação foi realizada? *</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setAcaoRealizada(true); setMotivoCancelamento(''); setReagendar(false); }}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === true
+                        ? 'border-success bg-success/10 text-success'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <CheckCircle2 size={18} />
+                    Sim, foi realizada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAcaoRealizada(false)}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === false
+                        ? 'border-destructive bg-destructive/10 text-destructive'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <XCircle size={18} />
+                    Não foi realizada
+                  </button>
+                </div>
               </div>
 
-              {/* Presence List */}
-              <div>
+              {/* Motivo Cancelamento */}
+              {acaoRealizada === false && (
+                <div className="space-y-4 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} className="text-destructive" />
+                      Motivo / Justificativa *
+                    </label>
+                    <Textarea
+                      value={motivoCancelamento}
+                      onChange={(e) => setMotivoCancelamento(e.target.value)}
+                      placeholder="Informe o motivo pelo qual a ação não foi realizada..."
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Opção de Reagendar */}
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="reagendar" 
+                      checked={reagendar}
+                      onCheckedChange={(checked) => setReagendar(checked as boolean)}
+                    />
+                    <label htmlFor="reagendar" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <CalendarPlus size={16} className="text-primary" />
+                      Reagendar esta ação
+                    </label>
+                  </div>
+
+                  {reagendar && (
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Nova Data *</label>
+                        <input
+                          type="date"
+                          value={novaData}
+                          onChange={(e) => setNovaData(e.target.value)}
+                          className="input-field text-sm"
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Início *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioInicio}
+                          onChange={(e) => setNovoHorarioInicio(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Fim *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioFim}
+                          onChange={(e) => setNovoHorarioFim(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Turma - só mostrar se ação foi realizada */}
+              {acaoRealizada === true && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Turma (opcional)</label>
+                    <input
+                      type="text"
+                      value={turma}
+                      onChange={(e) => setTurma(e.target.value)}
+                      placeholder="Ex: Turma A"
+                      className="input-field"
+                    />
+                  </div>
+
+                  {/* Presence List */}
+                  <div>
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium flex items-center gap-2">
                     <Users size={18} className="text-primary" />
@@ -425,6 +562,8 @@ export default function AAPRegistrarAcaoPage() {
                   rows={2}
                 />
               </div>
+                </>
+              )}
 
               <DialogFooter>
                 <Button
@@ -474,20 +613,117 @@ export default function AAPRegistrarAcaoPage() {
                 </div>
               </div>
 
-              {/* Turma */}
+              {/* Status da Ação */}
               <div>
-                <label className="block text-sm font-medium mb-2">Turma (opcional)</label>
-                <input
-                  type="text"
-                  value={turma}
-                  onChange={(e) => setTurma(e.target.value)}
-                  placeholder="Ex: Turma A"
-                  className="input-field"
-                />
+                <label className="block text-sm font-medium mb-3">O acompanhamento foi realizado? *</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setAcaoRealizada(true); setMotivoCancelamento(''); setReagendar(false); }}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === true
+                        ? 'border-success bg-success/10 text-success'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <CheckCircle2 size={18} />
+                    Sim, foi realizado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAcaoRealizada(false)}
+                    className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                      acaoRealizada === false
+                        ? 'border-destructive bg-destructive/10 text-destructive'
+                        : 'border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    <XCircle size={18} />
+                    Não foi realizado
+                  </button>
+                </div>
               </div>
 
-              {/* Professor Selection */}
-              <div>
+              {/* Motivo Cancelamento */}
+              {acaoRealizada === false && (
+                <div className="space-y-4 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} className="text-destructive" />
+                      Motivo / Justificativa *
+                    </label>
+                    <Textarea
+                      value={motivoCancelamento}
+                      onChange={(e) => setMotivoCancelamento(e.target.value)}
+                      placeholder="Informe o motivo pelo qual o acompanhamento não foi realizado..."
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Opção de Reagendar */}
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="reagendar-acomp" 
+                      checked={reagendar}
+                      onCheckedChange={(checked) => setReagendar(checked as boolean)}
+                    />
+                    <label htmlFor="reagendar-acomp" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <CalendarPlus size={16} className="text-primary" />
+                      Reagendar este acompanhamento
+                    </label>
+                  </div>
+
+                  {reagendar && (
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Nova Data *</label>
+                        <input
+                          type="date"
+                          value={novaData}
+                          onChange={(e) => setNovaData(e.target.value)}
+                          className="input-field text-sm"
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Início *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioInicio}
+                          onChange={(e) => setNovoHorarioInicio(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">Fim *</label>
+                        <input
+                          type="time"
+                          value={novoHorarioFim}
+                          onChange={(e) => setNovoHorarioFim(e.target.value)}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Turma - só mostrar se ação foi realizada */}
+              {acaoRealizada === true && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Turma (opcional)</label>
+                    <input
+                      type="text"
+                      value={turma}
+                      onChange={(e) => setTurma(e.target.value)}
+                      placeholder="Ex: Turma A"
+                      className="input-field"
+                    />
+                  </div>
+
+                  {/* Professor Selection */}
+                  <div>
                 <h4 className="font-medium flex items-center gap-2 mb-3">
                   <Users size={18} className="text-primary" />
                   Selecione o Professor/Coordenador para avaliar
@@ -583,19 +819,21 @@ export default function AAPRegistrarAcaoPage() {
                 </div>
               )}
 
-              {/* General Observations */}
-              <div>
-                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                  <FileText size={16} className="text-muted-foreground" />
-                  Observações Gerais
-                </label>
-                <Textarea
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Observações gerais sobre o acompanhamento..."
-                  rows={3}
-                />
-              </div>
+                  {/* General Observations */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                      <FileText size={16} className="text-muted-foreground" />
+                      Observações Gerais
+                    </label>
+                    <Textarea
+                      value={observacoes}
+                      onChange={(e) => setObservacoes(e.target.value)}
+                      placeholder="Observações gerais sobre o acompanhamento..."
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
 
               <DialogFooter>
                 <Button
