@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, MapPin, Phone, User } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, MapPin, Phone, User, Upload } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { escolas as initialEscolas } from '@/data/mockData';
 import { Escola } from '@/types';
@@ -11,13 +11,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { EscolaUploadDialog } from '@/components/forms/EscolaUploadDialog';
 
 export default function EscolasPage() {
   const [escolas, setEscolas] = useState<Escola[]>(initialEscolas);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingEscola, setEditingEscola] = useState<Escola | null>(null);
   const [formData, setFormData] = useState({
+    codesc: '',
+    codInep: '',
     nome: '',
     endereco: '',
     telefone: '',
@@ -33,6 +37,8 @@ export default function EscolasPage() {
     if (escola) {
       setEditingEscola(escola);
       setFormData({
+        codesc: escola.codesc,
+        codInep: escola.codInep,
         nome: escola.nome,
         endereco: escola.endereco || '',
         telefone: escola.telefone || '',
@@ -40,7 +46,7 @@ export default function EscolasPage() {
       });
     } else {
       setEditingEscola(null);
-      setFormData({ nome: '', endereco: '', telefone: '', diretor: '' });
+      setFormData({ codesc: '', codInep: '', nome: '', endereco: '', telefone: '', diretor: '' });
     }
     setIsDialogOpen(true);
   };
@@ -58,7 +64,12 @@ export default function EscolasPage() {
     } else {
       const newEscola: Escola = {
         id: String(Date.now()),
-        ...formData,
+        codesc: formData.codesc.padStart(6, '0'),
+        codInep: formData.codInep.padStart(8, '0'),
+        nome: formData.nome,
+        endereco: formData.endereco || undefined,
+        telefone: formData.telefone || undefined,
+        diretor: formData.diretor || undefined,
         createdAt: new Date(),
       };
       setEscolas(prev => [...prev, newEscola]);
@@ -66,6 +77,15 @@ export default function EscolasPage() {
     }
     
     setIsDialogOpen(false);
+  };
+
+  const handleBatchUpload = (newEscolas: Omit<Escola, 'id' | 'createdAt'>[]) => {
+    const escolasWithIds = newEscolas.map(escola => ({
+      ...escola,
+      id: String(Date.now() + Math.random()),
+      createdAt: new Date(),
+    }));
+    setEscolas(prev => [...prev, ...escolasWithIds]);
   };
 
   const handleDelete = (id: string) => {
@@ -76,6 +96,20 @@ export default function EscolasPage() {
   };
 
   const columns = [
+    {
+      key: 'codesc',
+      header: 'CODESC',
+      render: (escola: Escola) => (
+        <span className="font-mono text-sm">{escola.codesc}</span>
+      ),
+    },
+    {
+      key: 'codInep',
+      header: 'COD_INEP',
+      render: (escola: Escola) => (
+        <span className="font-mono text-sm">{escola.codInep}</span>
+      ),
+    },
     {
       key: 'nome',
       header: 'Escola',
@@ -143,77 +177,120 @@ export default function EscolasPage() {
           <p className="page-subtitle">Gerencie as escolas do programa</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <button onClick={() => handleOpenDialog()} className="btn-primary flex items-center gap-2">
-              <Plus size={20} />
-              Nova Escola
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {editingEscola ? 'Editar Escola' : 'Nova Escola'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-              <div>
-                <label className="form-label">Nome da Escola *</label>
-                <input
-                  type="text"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  className="input-field"
-                  placeholder="E.M. Nome da Escola"
-                  required
-                />
-              </div>
-              <div>
-                <label className="form-label">Endereço</label>
-                <input
-                  type="text"
-                  value={formData.endereco}
-                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-                  className="input-field"
-                  placeholder="Rua, número, bairro"
-                />
-              </div>
-              <div>
-                <label className="form-label">Telefone</label>
-                <input
-                  type="tel"
-                  value={formData.telefone}
-                  onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                  className="input-field"
-                  placeholder="(11) 1234-5678"
-                />
-              </div>
-              <div>
-                <label className="form-label">Diretor(a)</label>
-                <input
-                  type="text"
-                  value={formData.diretor}
-                  onChange={(e) => setFormData({ ...formData, diretor: e.target.value })}
-                  className="input-field"
-                  placeholder="Nome do diretor(a)"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="btn-outline flex-1"
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-primary flex-1">
-                  {editingEscola ? 'Salvar' : 'Cadastrar'}
-                </button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setIsUploadDialogOpen(true)}
+            className="btn-outline flex items-center gap-2"
+          >
+            <Upload size={18} />
+            Importar Lote
+          </button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <button onClick={() => handleOpenDialog()} className="btn-primary flex items-center gap-2">
+                <Plus size={20} />
+                Nova Escola
+              </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingEscola ? 'Editar Escola' : 'Nova Escola'}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">CODESC *</label>
+                    <input
+                      type="text"
+                      value={formData.codesc}
+                      onChange={(e) => setFormData({ ...formData, codesc: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      className="input-field font-mono"
+                      placeholder="123456"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">COD_INEP *</label>
+                    <input
+                      type="text"
+                      value={formData.codInep}
+                      onChange={(e) => setFormData({ ...formData, codInep: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                      className="input-field font-mono"
+                      placeholder="12345678"
+                      maxLength={8}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Nome da Escola *</label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    className="input-field"
+                    placeholder="E.M. Nome da Escola"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Endereço</label>
+                  <input
+                    type="text"
+                    value={formData.endereco}
+                    onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                    className="input-field"
+                    placeholder="Rua, número, bairro"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Telefone</label>
+                  <input
+                    type="tel"
+                    value={formData.telefone}
+                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                    className="input-field"
+                    placeholder="(11) 1234-5678"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Diretor(a)</label>
+                  <input
+                    type="text"
+                    value={formData.diretor}
+                    onChange={(e) => setFormData({ ...formData, diretor: e.target.value })}
+                    className="input-field"
+                    placeholder="Nome do diretor(a)"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsDialogOpen(false)}
+                    className="btn-outline flex-1"
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn-primary flex-1">
+                    {editingEscola ? 'Salvar' : 'Cadastrar'}
+                  </button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Upload Dialog */}
+      <EscolaUploadDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        onUpload={handleBatchUpload}
+      />
 
       {/* Search */}
       <div className="relative max-w-md">

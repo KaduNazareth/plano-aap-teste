@@ -22,6 +22,8 @@ export interface User {
 
 export interface Escola {
   id: string;
+  codesc: string;
+  codInep: string;
   nome: string;
   endereco?: string;
   telefone?: string;
