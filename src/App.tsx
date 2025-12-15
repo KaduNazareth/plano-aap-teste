@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
-import LoginPage from "./pages/LoginPage";
+import AuthPage from "./pages/AuthPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import EscolasPage from "./pages/admin/EscolasPage";
 import ProfessoresPage from "./pages/admin/ProfessoresPage";
@@ -26,7 +26,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<AuthPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
             {/* Admin Routes */}

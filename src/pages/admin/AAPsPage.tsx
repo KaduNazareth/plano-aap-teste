@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, School, Mail, Phone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, School, Mail, Phone, Key } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { aaps as initialAaps, escolas } from '@/data/mockData';
-import { AAP } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -13,24 +12,88 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-const tipoLabels = {
-  anos_iniciais: 'Anos Iniciais',
-  lingua_portuguesa: 'Língua Portuguesa',
-  matematica: 'Matemática',
+type AAPRole = 'aap_inicial' | 'aap_portugues' | 'aap_matematica';
+
+interface AAP {
+  id: string;
+  nome: string;
+  email: string;
+  telefone?: string;
+  role: AAPRole;
+  escolasIds: string[];
+  createdAt?: string;
+}
+
+interface Escola {
+  id: string;
+  nome: string;
+  codesc?: string;
+  cod_inep?: string;
+}
+
+const tipoLabels: Record<AAPRole, string> = {
+  aap_inicial: 'Anos Iniciais',
+  aap_portugues: 'Língua Portuguesa',
+  aap_matematica: 'Matemática',
 };
 
 export default function AAPsPage() {
-  const [aapsList, setAapsList] = useState<AAP[]>(initialAaps);
+  const [aapsList, setAapsList] = useState<AAP[]>([]);
+  const [escolas, setEscolas] = useState<Escola[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAAP, setEditingAAP] = useState<AAP | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
+    senha: '',
     telefone: '',
-    tipo: 'anos_iniciais' as 'anos_iniciais' | 'lingua_portuguesa' | 'matematica',
+    tipo: 'aap_inicial' as AAPRole,
     escolasIds: [] as string[],
   });
+
+  useEffect(() => {
+    fetchAAPs();
+    fetchEscolas();
+  }, []);
+
+  const fetchEscolas = async () => {
+    const { data, error } = await supabase
+      .from('escolas')
+      .select('id, nome, codesc, cod_inep')
+      .order('nome');
+
+    if (error) {
+      console.error('Error fetching escolas:', error);
+      return;
+    }
+
+    setEscolas(data || []);
+  };
+
+  const fetchAAPs = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-aap-user', {
+        body: { action: 'list' }
+      });
+
+      if (error) {
+        console.error('Error fetching AAPs:', error);
+        toast.error('Erro ao carregar AAPs');
+        return;
+      }
+
+      setAapsList(data.users || []);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Erro ao carregar AAPs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredAAPs = aapsList.filter(aap =>
     aap.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,8 +106,9 @@ export default function AAPsPage() {
       setFormData({
         nome: aap.nome,
         email: aap.email,
+        senha: '',
         telefone: aap.telefone || '',
-        tipo: aap.tipo,
+        tipo: aap.role,
         escolasIds: aap.escolasIds,
       });
     } else {
@@ -52,42 +116,96 @@ export default function AAPsPage() {
       setFormData({
         nome: '',
         email: '',
+        senha: '',
         telefone: '',
-        tipo: 'anos_iniciais',
+        tipo: 'aap_inicial',
         escolasIds: [],
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingAAP) {
-      setAapsList(prev => prev.map(aap =>
-        aap.id === editingAAP.id
-          ? { ...aap, ...formData }
-          : aap
-      ));
-      toast.success('AAP atualizado com sucesso!');
-    } else {
-      const newAAP: AAP = {
-        id: String(Date.now()),
-        ...formData,
-        userId: String(Date.now()),
-        createdAt: new Date(),
-      };
-      setAapsList(prev => [...prev, newAAP]);
-      toast.success('AAP cadastrado com sucesso!');
+    setIsSubmitting(true);
+
+    try {
+      if (editingAAP) {
+        const { data, error } = await supabase.functions.invoke('manage-aap-user', {
+          body: {
+            action: 'update',
+            userId: editingAAP.id,
+            email: formData.email,
+            password: formData.senha || undefined,
+            nome: formData.nome,
+            telefone: formData.telefone,
+            role: formData.tipo,
+            escolasIds: formData.escolasIds,
+          }
+        });
+
+        if (error || data?.error) {
+          toast.error(data?.error || 'Erro ao atualizar AAP');
+          return;
+        }
+
+        toast.success('AAP atualizado com sucesso!');
+      } else {
+        if (!formData.senha) {
+          toast.error('Senha é obrigatória para novos usuários');
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('manage-aap-user', {
+          body: {
+            action: 'create',
+            email: formData.email,
+            password: formData.senha,
+            nome: formData.nome,
+            telefone: formData.telefone,
+            role: formData.tipo,
+            escolasIds: formData.escolasIds,
+          }
+        });
+
+        if (error || data?.error) {
+          toast.error(data?.error || 'Erro ao cadastrar AAP');
+          return;
+        }
+
+        toast.success('AAP cadastrado com sucesso!');
+      }
+
+      setIsDialogOpen(false);
+      fetchAAPs();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Erro ao salvar AAP');
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este AAP?')) {
-      setAapsList(prev => prev.filter(aap => aap.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este AAP? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-aap-user', {
+        body: { action: 'delete', userId: id }
+      });
+
+      if (error || data?.error) {
+        toast.error(data?.error || 'Erro ao excluir AAP');
+        return;
+      }
+
       toast.success('AAP excluído com sucesso!');
+      fetchAAPs();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Erro ao excluir AAP');
     }
   };
 
@@ -126,9 +244,9 @@ export default function AAPsPage() {
       key: 'tipo',
       header: 'Tipo',
       render: (aap: AAP) => {
-        const variant = aap.tipo === 'anos_iniciais' ? 'success' : 
-                        aap.tipo === 'lingua_portuguesa' ? 'primary' : 'warning';
-        return <StatusBadge variant={variant}>{tipoLabels[aap.tipo]}</StatusBadge>;
+        const variant = aap.role === 'aap_inicial' ? 'success' : 
+                        aap.role === 'aap_portugues' ? 'primary' : 'warning';
+        return <StatusBadge variant={variant}>{tipoLabels[aap.role]}</StatusBadge>;
       },
     },
     {
@@ -155,12 +273,14 @@ export default function AAPsPage() {
           <button
             onClick={() => handleOpenDialog(aap)}
             className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="Editar"
           >
             <Edit2 size={16} />
           </button>
           <button
             onClick={() => handleDelete(aap.id)}
-            className="p-2 rounded-lg hover:bg-error/10 text-muted-foreground hover:text-error transition-colors"
+            className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+            title="Excluir"
           >
             <Trash2 size={16} />
           </button>
@@ -216,6 +336,21 @@ export default function AAPsPage() {
                   />
                 </div>
                 <div>
+                  <label className="form-label flex items-center gap-2">
+                    <Key size={14} />
+                    Senha {editingAAP ? '(deixe vazio para manter)' : '*'}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.senha}
+                    onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
+                    className="input-field"
+                    placeholder="••••••••"
+                    required={!editingAAP}
+                    minLength={6}
+                  />
+                </div>
+                <div>
                   <label className="form-label">Telefone</label>
                   <input
                     type="tel"
@@ -225,11 +360,11 @@ export default function AAPsPage() {
                     placeholder="(11) 99999-9999"
                   />
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="form-label">Tipo *</label>
                   <select
                     value={formData.tipo}
-                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value as typeof formData.tipo })}
+                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value as AAPRole })}
                     className="input-field"
                     required
                   >
@@ -239,23 +374,29 @@ export default function AAPsPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="form-label">Escolas Vinculadas *</label>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-3 border border-border rounded-lg">
-                    {escolas.map(escola => (
-                      <label 
-                        key={escola.id} 
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.escolasIds.includes(escola.id)}
-                          onChange={() => handleEscolaToggle(escola.id)}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm">{escola.nome}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <label className="form-label">Escolas Vinculadas</label>
+                  {escolas.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3 border border-border rounded-lg">
+                      Nenhuma escola cadastrada. Cadastre escolas primeiro.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-3 border border-border rounded-lg">
+                      {escolas.map(escola => (
+                        <label 
+                          key={escola.id} 
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.escolasIds.includes(escola.id)}
+                            onChange={() => handleEscolaToggle(escola.id)}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm">{escola.nome}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
@@ -263,11 +404,16 @@ export default function AAPsPage() {
                   type="button"
                   onClick={() => setIsDialogOpen(false)}
                   className="btn-outline flex-1"
+                  disabled={isSubmitting}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary flex-1">
-                  {editingAAP ? 'Salvar' : 'Cadastrar'}
+                <button 
+                  type="submit" 
+                  className="btn-primary flex-1"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Salvando...' : editingAAP ? 'Salvar' : 'Cadastrar'}
                 </button>
               </div>
             </form>
@@ -292,7 +438,8 @@ export default function AAPsPage() {
         data={filteredAAPs}
         columns={columns}
         keyExtractor={(aap) => aap.id}
-        emptyMessage="Nenhum AAP encontrado"
+        emptyMessage="Nenhum AAP cadastrado"
+        isLoading={isLoading}
       />
     </div>
   );
