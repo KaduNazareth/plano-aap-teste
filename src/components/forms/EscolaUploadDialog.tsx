@@ -6,14 +6,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Escola } from '@/types';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
 interface EscolaUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpload: (escolas: Omit<Escola, 'id' | 'createdAt'>[]) => void;
+  onUpload: (escolas: { codesc: string; codInep: string; nome: string; endereco?: string }[]) => void;
 }
 
 interface ParsedEscola {
@@ -21,8 +20,6 @@ interface ParsedEscola {
   codInep: string;
   nome: string;
   endereco?: string;
-  telefone?: string;
-  diretor?: string;
   valid: boolean;
   errors: string[];
 }
@@ -63,8 +60,6 @@ export function EscolaUploadDialog({ open, onOpenChange, onUpload }: EscolaUploa
           const codInep = String(row['COD_INEP'] || row['cod_inep'] || row['CODINEP'] || '').trim();
           const nome = String(row['NOME'] || row['nome'] || row['Nome'] || '').trim();
           const endereco = String(row['ENDERECO'] || row['endereco'] || row['Endereco'] || '').trim() || undefined;
-          const telefone = String(row['TELEFONE'] || row['telefone'] || row['Telefone'] || '').trim() || undefined;
-          const diretor = String(row['DIRETOR'] || row['diretor'] || row['Diretor'] || '').trim() || undefined;
 
           if (!codesc) errors.push('CODESC obrigatório');
           else if (!validateCodesc(codesc)) errors.push('CODESC inválido (até 6 dígitos)');
@@ -75,12 +70,10 @@ export function EscolaUploadDialog({ open, onOpenChange, onUpload }: EscolaUploa
           if (!nome) errors.push('Nome obrigatório');
 
           return {
-            codesc: codesc.padStart(6, '0').slice(-6),
-            codInep: codInep.padStart(8, '0').slice(-8),
+            codesc: codesc.replace(/\D/g, ''),
+            codInep: codInep.replace(/\D/g, ''),
             nome,
             endereco,
-            telefone,
-            diretor,
             valid: errors.length === 0,
             errors,
           };
@@ -99,7 +92,7 @@ export function EscolaUploadDialog({ open, onOpenChange, onUpload }: EscolaUploa
 
   const handleDownloadTemplate = () => {
     const template = [
-      { CODESC: '123456', COD_INEP: '12345678', NOME: 'E.M. Exemplo', ENDERECO: 'Rua Exemplo, 123', TELEFONE: '(11) 1234-5678', DIRETOR: 'Nome do Diretor' },
+      { CODESC: '123456', COD_INEP: '35123456', NOME: 'E.E. Exemplo', ENDERECO: 'Rua Exemplo, 123 - Bairro' },
     ];
     const ws = XLSX.utils.json_to_sheet(template);
     const wb = XLSX.utils.book_new();
@@ -115,7 +108,6 @@ export function EscolaUploadDialog({ open, onOpenChange, onUpload }: EscolaUploa
     }
 
     onUpload(validData.map(({ valid, errors, ...escola }) => escola));
-    toast.success(`${validData.length} escola(s) importada(s) com sucesso!`);
     setParsedData([]);
     onOpenChange(false);
   };
@@ -138,7 +130,7 @@ export function EscolaUploadDialog({ open, onOpenChange, onUpload }: EscolaUploa
               <li><strong>CODESC</strong>: Código da escola (numérico, até 6 dígitos)</li>
               <li><strong>COD_INEP</strong>: Código INEP (numérico, 8 dígitos)</li>
               <li><strong>NOME</strong>: Nome da escola (obrigatório)</li>
-              <li><strong>ENDERECO, TELEFONE, DIRETOR</strong>: Opcionais</li>
+              <li><strong>ENDERECO</strong>: Endereço (opcional)</li>
             </ul>
           </div>
 

@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, MapPin, Phone, User, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, MapPin, Upload, Loader2 } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
-import { escolas as initialEscolas } from '@/data/mockData';
-import { Escola } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -13,85 +12,152 @@ import {
 } from '@/components/ui/dialog';
 import { EscolaUploadDialog } from '@/components/forms/EscolaUploadDialog';
 
+interface Escola {
+  id: string;
+  codesc: string | null;
+  cod_inep: string | null;
+  nome: string;
+  endereco: string | null;
+  created_at: string;
+}
+
 export default function EscolasPage() {
-  const [escolas, setEscolas] = useState<Escola[]>(initialEscolas);
+  const [escolas, setEscolas] = useState<Escola[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [editingEscola, setEditingEscola] = useState<Escola | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     codesc: '',
-    codInep: '',
+    cod_inep: '',
     nome: '',
     endereco: '',
-    telefone: '',
-    diretor: '',
   });
+
+  useEffect(() => {
+    fetchEscolas();
+  }, []);
+
+  const fetchEscolas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('escolas')
+        .select('*')
+        .order('nome');
+
+      if (error) throw error;
+      setEscolas(data || []);
+    } catch (error) {
+      console.error('Error fetching escolas:', error);
+      toast.error('Erro ao carregar escolas');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredEscolas = escolas.filter(escola =>
     escola.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    escola.diretor?.toLowerCase().includes(searchTerm.toLowerCase())
+    escola.codesc?.includes(searchTerm) ||
+    escola.cod_inep?.includes(searchTerm)
   );
 
   const handleOpenDialog = (escola?: Escola) => {
     if (escola) {
       setEditingEscola(escola);
       setFormData({
-        codesc: escola.codesc,
-        codInep: escola.codInep,
+        codesc: escola.codesc || '',
+        cod_inep: escola.cod_inep || '',
         nome: escola.nome,
         endereco: escola.endereco || '',
-        telefone: escola.telefone || '',
-        diretor: escola.diretor || '',
       });
     } else {
       setEditingEscola(null);
-      setFormData({ codesc: '', codInep: '', nome: '', endereco: '', telefone: '', diretor: '' });
+      setFormData({ codesc: '', cod_inep: '', nome: '', endereco: '' });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingEscola) {
-      setEscolas(prev => prev.map(escola =>
-        escola.id === editingEscola.id
-          ? { ...escola, ...formData }
-          : escola
-      ));
-      toast.success('Escola atualizada com sucesso!');
-    } else {
-      const newEscola: Escola = {
-        id: String(Date.now()),
-        codesc: formData.codesc.padStart(6, '0'),
-        codInep: formData.codInep.padStart(8, '0'),
-        nome: formData.nome,
-        endereco: formData.endereco || undefined,
-        telefone: formData.telefone || undefined,
-        diretor: formData.diretor || undefined,
-        createdAt: new Date(),
-      };
-      setEscolas(prev => [...prev, newEscola]);
-      toast.success('Escola cadastrada com sucesso!');
+    setIsSubmitting(true);
+
+    try {
+      if (editingEscola) {
+        const { error } = await supabase
+          .from('escolas')
+          .update({
+            codesc: formData.codesc || null,
+            cod_inep: formData.cod_inep || null,
+            nome: formData.nome,
+            endereco: formData.endereco || null,
+          })
+          .eq('id', editingEscola.id);
+
+        if (error) throw error;
+        toast.success('Escola atualizada com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('escolas')
+          .insert({
+            codesc: formData.codesc || null,
+            cod_inep: formData.cod_inep || null,
+            nome: formData.nome,
+            endereco: formData.endereco || null,
+          });
+
+        if (error) throw error;
+        toast.success('Escola cadastrada com sucesso!');
+      }
+
+      setIsDialogOpen(false);
+      fetchEscolas();
+    } catch (error) {
+      console.error('Error saving escola:', error);
+      toast.error('Erro ao salvar escola');
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsDialogOpen(false);
   };
 
-  const handleBatchUpload = (newEscolas: Omit<Escola, 'id' | 'createdAt'>[]) => {
-    const escolasWithIds = newEscolas.map(escola => ({
-      ...escola,
-      id: String(Date.now() + Math.random()),
-      createdAt: new Date(),
-    }));
-    setEscolas(prev => [...prev, ...escolasWithIds]);
+  const handleBatchUpload = async (newEscolas: { codesc: string; codInep: string; nome: string; endereco?: string }[]) => {
+    try {
+      const escolasToInsert = newEscolas.map(e => ({
+        codesc: e.codesc || null,
+        cod_inep: e.codInep || null,
+        nome: e.nome,
+        endereco: e.endereco || null,
+      }));
+
+      const { error } = await supabase
+        .from('escolas')
+        .insert(escolasToInsert);
+
+      if (error) throw error;
+      toast.success(`${newEscolas.length} escolas importadas com sucesso!`);
+      fetchEscolas();
+    } catch (error) {
+      console.error('Error batch uploading:', error);
+      toast.error('Erro ao importar escolas');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta escola?')) {
-      setEscolas(prev => prev.filter(escola => escola.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta escola?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('escolas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       toast.success('Escola excluída com sucesso!');
+      setEscolas(prev => prev.filter(e => e.id !== id));
+    } catch (error) {
+      console.error('Error deleting escola:', error);
+      toast.error('Erro ao excluir escola');
     }
   };
 
@@ -100,14 +166,14 @@ export default function EscolasPage() {
       key: 'codesc',
       header: 'CODESC',
       render: (escola: Escola) => (
-        <span className="font-mono text-sm">{escola.codesc}</span>
+        <span className="font-mono text-sm">{escola.codesc || '-'}</span>
       ),
     },
     {
-      key: 'codInep',
+      key: 'cod_inep',
       header: 'COD_INEP',
       render: (escola: Escola) => (
-        <span className="font-mono text-sm">{escola.codInep}</span>
+        <span className="font-mono text-sm">{escola.cod_inep || '-'}</span>
       ),
     },
     {
@@ -122,26 +188,6 @@ export default function EscolasPage() {
               {escola.endereco}
             </p>
           )}
-        </div>
-      ),
-    },
-    {
-      key: 'diretor',
-      header: 'Diretor(a)',
-      render: (escola: Escola) => (
-        <div className="flex items-center gap-2">
-          <User size={16} className="text-muted-foreground" />
-          <span>{escola.diretor || '-'}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'telefone',
-      header: 'Telefone',
-      render: (escola: Escola) => (
-        <div className="flex items-center gap-2">
-          <Phone size={16} className="text-muted-foreground" />
-          <span>{escola.telefone || '-'}</span>
         </div>
       ),
     },
@@ -168,15 +214,25 @@ export default function EscolasPage() {
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="page-header">Escolas</h1>
-          <p className="page-subtitle">Gerencie as escolas do programa</p>
+          <p className="page-subtitle">
+            {escolas.length} escolas cadastradas
+          </p>
         </div>
-        
+
         <div className="flex gap-3">
           <button
             onClick={() => setIsUploadDialogOpen(true)}
@@ -185,7 +241,7 @@ export default function EscolasPage() {
             <Upload size={18} />
             Importar Lote
           </button>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <button onClick={() => handleOpenDialog()} className="btn-primary flex items-center gap-2">
@@ -202,7 +258,7 @@ export default function EscolasPage() {
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">CODESC *</label>
+                    <label className="form-label">CODESC</label>
                     <input
                       type="text"
                       value={formData.codesc}
@@ -210,19 +266,17 @@ export default function EscolasPage() {
                       className="input-field font-mono"
                       placeholder="123456"
                       maxLength={6}
-                      required
                     />
                   </div>
                   <div>
-                    <label className="form-label">COD_INEP *</label>
+                    <label className="form-label">COD_INEP</label>
                     <input
                       type="text"
-                      value={formData.codInep}
-                      onChange={(e) => setFormData({ ...formData, codInep: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                      value={formData.cod_inep}
+                      onChange={(e) => setFormData({ ...formData, cod_inep: e.target.value.replace(/\D/g, '').slice(0, 8) })}
                       className="input-field font-mono"
                       placeholder="12345678"
                       maxLength={8}
-                      required
                     />
                   </div>
                 </div>
@@ -233,7 +287,7 @@ export default function EscolasPage() {
                     value={formData.nome}
                     onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                     className="input-field"
-                    placeholder="E.M. Nome da Escola"
+                    placeholder="E.E. Nome da Escola"
                     required
                   />
                 </div>
@@ -244,27 +298,7 @@ export default function EscolasPage() {
                     value={formData.endereco}
                     onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
                     className="input-field"
-                    placeholder="Rua, número, bairro"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Telefone</label>
-                  <input
-                    type="tel"
-                    value={formData.telefone}
-                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                    className="input-field"
-                    placeholder="(11) 1234-5678"
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Diretor(a)</label>
-                  <input
-                    type="text"
-                    value={formData.diretor}
-                    onChange={(e) => setFormData({ ...formData, diretor: e.target.value })}
-                    className="input-field"
-                    placeholder="Nome do diretor(a)"
+                    placeholder="Rua, número - Bairro"
                   />
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -272,11 +306,20 @@ export default function EscolasPage() {
                     type="button"
                     onClick={() => setIsDialogOpen(false)}
                     className="btn-outline flex-1"
+                    disabled={isSubmitting}
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="btn-primary flex-1">
-                    {editingEscola ? 'Salvar' : 'Cadastrar'}
+                  <button
+                    type="submit"
+                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      editingEscola ? 'Salvar' : 'Cadastrar'
+                    )}
                   </button>
                 </div>
               </form>
@@ -299,7 +342,7 @@ export default function EscolasPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar escolas..."
+          placeholder="Buscar por nome, CODESC ou COD_INEP..."
           className="input-field pl-11"
         />
       </div>
