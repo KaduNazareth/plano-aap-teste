@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Download, Eye } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Download, Eye, FileText } from 'lucide-react';
 import { FilterBar } from '@/components/forms/FilterBar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { programacoes, registrosAcao, escolas, aaps, professores, presencas, segmentoLabels, avaliacoesAula } from '@/data/mockData';
@@ -8,8 +8,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export default function RelatoriosPage() {
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     segmento: 'todos',
     componente: 'todos',
@@ -190,7 +194,61 @@ export default function RelatoriosPage() {
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(data, `relatorio_programa_${new Date().toISOString().split('T')[0]}.xlsx`);
-    toast.success('Relatório exportado com sucesso!');
+    toast.success('Relatório Excel exportado com sucesso!');
+  };
+
+  const handleExportPdf = async () => {
+    if (!reportRef.current) return;
+    
+    setIsExportingPdf(true);
+    toast.info('Gerando PDF...');
+    
+    try {
+      const element = reportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      
+      let heightLeft = imgHeight * ratio;
+      let position = 0;
+      
+      // Add first page
+      pdf.addImage(imgData, 'PNG', imgX, position, imgWidth * ratio, imgHeight * ratio);
+      heightLeft -= pdfHeight;
+      
+      // Add additional pages if needed
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight * ratio;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', imgX, position, imgWidth * ratio, imgHeight * ratio);
+        heightLeft -= pdfHeight;
+      }
+      
+      pdf.save(`relatorio_programa_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast.error('Erro ao gerar PDF. Tente novamente.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   return (
@@ -202,14 +260,27 @@ export default function RelatoriosPage() {
           <p className="page-subtitle">Acompanhe os indicadores do programa</p>
         </div>
         
-        <button onClick={handleExport} className="btn-primary flex items-center gap-2">
-          <Download size={18} />
-          Exportar Relatório
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={handleExportPdf} 
+            disabled={isExportingPdf}
+            className="btn-outline flex items-center gap-2 disabled:opacity-50"
+          >
+            <FileText size={18} />
+            {isExportingPdf ? 'Gerando...' : 'Exportar PDF'}
+          </button>
+          <button onClick={handleExport} className="btn-primary flex items-center gap-2">
+            <Download size={18} />
+            Exportar Excel
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       <FilterBar filters={filters} onFilterChange={setFilters} />
+
+      {/* Report Content - wrapped in ref for PDF export */}
+      <div ref={reportRef} className="space-y-6 bg-background p-1">
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -440,6 +511,7 @@ export default function RelatoriosPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

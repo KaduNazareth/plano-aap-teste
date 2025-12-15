@@ -1,11 +1,11 @@
 import { Escola, Professor, AAP, Programacao, RegistroAcao, Presenca, Segmento, ComponenteCurricular } from '@/types';
 
 export const escolas: Escola[] = [
-  { id: '1', nome: 'E.M. Professor Paulo Freire', endereco: 'Rua das Flores, 123', telefone: '(11) 1234-5678', diretor: 'Dr. Carlos Mendes', createdAt: new Date('2024-01-15') },
-  { id: '2', nome: 'E.M. Monteiro Lobato', endereco: 'Av. Brasil, 456', telefone: '(11) 2345-6789', diretor: 'Dra. Ana Paula', createdAt: new Date('2024-01-15') },
-  { id: '3', nome: 'E.M. Cecília Meireles', endereco: 'Rua dos Estudantes, 789', telefone: '(11) 3456-7890', diretor: 'Prof. Roberto Silva', createdAt: new Date('2024-01-20') },
-  { id: '4', nome: 'E.M. Castro Alves', endereco: 'Praça da Educação, 321', telefone: '(11) 4567-8901', diretor: 'Dra. Maria Santos', createdAt: new Date('2024-02-01') },
-  { id: '5', nome: 'E.M. Machado de Assis', endereco: 'Rua Literária, 654', telefone: '(11) 5678-9012', diretor: 'Prof. José Lima', createdAt: new Date('2024-02-10') },
+  { id: '1', codesc: '100001', codInep: '35100001', nome: 'E.M. Professor Paulo Freire', endereco: 'Rua das Flores, 123', telefone: '(11) 1234-5678', diretor: 'Dr. Carlos Mendes', createdAt: new Date('2024-01-15') },
+  { id: '2', codesc: '100002', codInep: '35100002', nome: 'E.M. Monteiro Lobato', endereco: 'Av. Brasil, 456', telefone: '(11) 2345-6789', diretor: 'Dra. Ana Paula', createdAt: new Date('2024-01-15') },
+  { id: '3', codesc: '100003', codInep: '35100003', nome: 'E.M. Cecília Meireles', endereco: 'Rua dos Estudantes, 789', telefone: '(11) 3456-7890', diretor: 'Prof. Roberto Silva', createdAt: new Date('2024-01-20') },
+  { id: '4', codesc: '100004', codInep: '35100004', nome: 'E.M. Castro Alves', endereco: 'Praça da Educação, 321', telefone: '(11) 4567-8901', diretor: 'Dra. Maria Santos', createdAt: new Date('2024-02-01') },
+  { id: '5', codesc: '100005', codInep: '35100005', nome: 'E.M. Machado de Assis', endereco: 'Rua Literária, 654', telefone: '(11) 5678-9012', diretor: 'Prof. José Lima', createdAt: new Date('2024-02-10') },
 ];
 
 export const professores: Professor[] = [
