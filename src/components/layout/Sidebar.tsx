@@ -35,15 +35,14 @@ const aapMenuItems = [
 ];
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
+  const { profile, logout, isAdmin } = useAuth();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   
-  const isAdmin = user?.role === 'admin';
   const menuItems = isAdmin ? adminMenuItems : aapMenuItems;
 
   const getRoleLabel = () => {
-    switch (user?.role) {
+    switch (profile?.role) {
       case 'admin': return 'Administrador';
       case 'aap_inicial': return 'AAP Anos Iniciais';
       case 'aap_portugues': return 'AAP Língua Portuguesa';
@@ -92,10 +91,10 @@ export function Sidebar() {
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-primary font-semibold">
-              {user?.nome.charAt(0)}
+              {profile?.nome?.charAt(0) || '?'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-sidebar-foreground truncate">{user?.nome}</p>
+              <p className="font-medium text-sm text-sidebar-foreground truncate">{profile?.nome || 'Carregando...'}</p>
               <p className="text-xs text-sidebar-foreground/60">{getRoleLabel()}</p>
             </div>
           </div>

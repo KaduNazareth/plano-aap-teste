@@ -14,16 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      aap_escolas: {
+        Row: {
+          aap_user_id: string
+          created_at: string
+          escola_id: string
+          id: string
+        }
+        Insert: {
+          aap_user_id: string
+          created_at?: string
+          escola_id: string
+          id?: string
+        }
+        Update: {
+          aap_user_id?: string
+          created_at?: string
+          escola_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aap_escolas_escola_id_fkey"
+            columns: ["escola_id"]
+            isOneToOne: false
+            referencedRelation: "escolas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escolas: {
+        Row: {
+          cod_inep: string | null
+          codesc: string | null
+          created_at: string
+          endereco: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          cod_inep?: string | null
+          codesc?: string | null
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          cod_inep?: string | null
+          codesc?: string | null
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "aap_inicial" | "aap_portugues" | "aap_matematica"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +264,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "aap_inicial", "aap_portugues", "aap_matematica"],
+    },
   },
 } as const
