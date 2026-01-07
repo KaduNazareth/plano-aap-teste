@@ -96,28 +96,41 @@ export default function UsuariosPage() {
 
   const fetchUsers = async () => {
     try {
-      const [profilesRes, rolesRes, programasRes] = await Promise.all([
+      const [profilesRes, rolesRes, aapProgramasRes, gestorProgramasRes] = await Promise.all([
         supabase.from('profiles').select('*').order('nome'),
         supabase.from('user_roles').select('user_id, role'),
         supabase.from('aap_programas').select('aap_user_id, programa'),
+        supabase.from('gestor_programas').select('gestor_user_id, programa'),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
       if (rolesRes.error) throw rolesRes.error;
-      if (programasRes.error) throw programasRes.error;
+      if (aapProgramasRes.error) throw aapProgramasRes.error;
+      if (gestorProgramasRes.error) throw gestorProgramasRes.error;
 
       const usersWithRoles: UserWithRole[] = (profilesRes.data || []).map(profile => {
         const userRole = rolesRes.data?.find(r => r.user_id === profile.id);
-        const userProgramas = programasRes.data
-          ?.filter(p => p.aap_user_id === profile.id)
-          .map(p => p.programa as ProgramaType) || [];
+        const role = userRole?.role as AppRole | null;
+        
+        // Get programas based on role
+        let userProgramas: ProgramaType[] = [];
+        if (role?.startsWith('aap_')) {
+          userProgramas = aapProgramasRes.data
+            ?.filter(p => p.aap_user_id === profile.id)
+            .map(p => p.programa as ProgramaType) || [];
+        } else if (role === 'gestor') {
+          userProgramas = gestorProgramasRes.data
+            ?.filter(p => p.gestor_user_id === profile.id)
+            .map(p => p.programa as ProgramaType) || [];
+        }
+        
         return {
           id: profile.id,
           nome: profile.nome,
           email: profile.email,
           telefone: profile.telefone,
           created_at: profile.created_at,
-          role: userRole?.role as AppRole | null,
+          role: role,
           programas: userProgramas,
         };
       });
@@ -280,7 +293,7 @@ export default function UsuariosPage() {
 
       // Update programas for AAP users
       if (formData.role?.startsWith('aap_')) {
-        // Delete existing programas
+        // Delete existing AAP programas
         await supabase
           .from('aap_programas')
           .delete()
@@ -297,12 +310,46 @@ export default function UsuariosPage() {
             .insert(programasToInsert);
           if (error) throw error;
         }
-      } else {
-        // Remove programas if not AAP
+        
+        // Clear gestor programas
+        await supabase
+          .from('gestor_programas')
+          .delete()
+          .eq('gestor_user_id', selectedUser.id);
+      } else if (formData.role === 'gestor') {
+        // Delete existing gestor programas
+        await supabase
+          .from('gestor_programas')
+          .delete()
+          .eq('gestor_user_id', selectedUser.id);
+
+        // Insert new programas
+        if (formData.programas.length > 0) {
+          const programasToInsert = formData.programas.map(p => ({
+            gestor_user_id: selectedUser.id,
+            programa: p,
+          }));
+          const { error } = await supabase
+            .from('gestor_programas')
+            .insert(programasToInsert);
+          if (error) throw error;
+        }
+        
+        // Clear AAP programas
         await supabase
           .from('aap_programas')
           .delete()
           .eq('aap_user_id', selectedUser.id);
+      } else {
+        // Remove all programas if not AAP or Gestor
+        await supabase
+          .from('aap_programas')
+          .delete()
+          .eq('aap_user_id', selectedUser.id);
+        await supabase
+          .from('gestor_programas')
+          .delete()
+          .eq('gestor_user_id', selectedUser.id);
       }
 
       toast.success('Papel e programas atualizados com sucesso!');
@@ -397,7 +444,7 @@ export default function UsuariosPage() {
               Sem papel
             </Badge>
           )}
-          {user.role?.startsWith('aap_') && user.programas.length > 0 && (
+          {(user.role?.startsWith('aap_') || user.role === 'gestor') && user.programas.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {user.programas.map(p => (
                 <span key={p} className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
@@ -684,9 +731,11 @@ export default function UsuariosPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {formData.role?.startsWith('aap_') && (
+              {(formData.role?.startsWith('aap_') || formData.role === 'gestor') && (
                 <div>
-                  <Label>Programas do AAP</Label>
+                  <Label>
+                    {formData.role === 'gestor' ? 'Programas que o Gestor gerencia' : 'Programas do AAP / Formador'}
+                  </Label>
                   <div className="space-y-2 mt-2">
                     {(['escolas', 'regionais', 'redes_municipais'] as ProgramaType[]).map(prog => (
                       <label key={prog} className="flex items-center gap-2 cursor-pointer">
