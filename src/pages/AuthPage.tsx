@@ -237,8 +237,7 @@ export default function AuthPage() {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               {getIcon()}
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Parceiros da Educação
-Acompanhamento AAPs<br />
+            <h1 className="text-2xl font-bold text-foreground">Parceiros da Educação <br />
               Acompanhamento AAPs
             </h1>
             <p className="text-muted-foreground mt-2">{getTitle()}</p>
