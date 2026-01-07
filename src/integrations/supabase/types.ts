@@ -97,6 +97,27 @@ export type Database = {
         }
         Relationships: []
       }
+      gestor_programas: {
+        Row: {
+          created_at: string
+          gestor_user_id: string
+          id: string
+          programa: Database["public"]["Enums"]["programa_type"]
+        }
+        Insert: {
+          created_at?: string
+          gestor_user_id: string
+          id?: string
+          programa: Database["public"]["Enums"]["programa_type"]
+        }
+        Update: {
+          created_at?: string
+          gestor_user_id?: string
+          id?: string
+          programa?: Database["public"]["Enums"]["programa_type"]
+        }
+        Relationships: []
+      }
       professores: {
         Row: {
           ano_serie: string
