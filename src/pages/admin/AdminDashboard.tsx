@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   School, 
   Users, 
@@ -7,18 +8,68 @@ import {
   Target,
   TrendingUp,
   FileCheck,
-  Eye
+  Eye,
+  Filter
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/StatCard';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { escolas, professores, aaps, programacoes, registrosAcao, presencas, avaliacoesAula, tipoAcaoLabels } from '@/data/mockData';
+import { escolas as mockEscolas, professores as mockProfessores, aaps, programacoes, registrosAcao, presencas, avaliacoesAula, tipoAcaoLabels } from '@/data/mockData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Database } from '@/integrations/supabase/types';
+
+type ProgramaType = Database['public']['Enums']['programa_type'];
+
+const programaLabels: Record<ProgramaType, string> = {
+  escolas: 'Programa de Escolas',
+  regionais: 'Programa de Regionais de Ensino',
+  redes_municipais: 'Programa de Redes Municipais'
+};
 
 export default function AdminDashboard() {
+  const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
+  const [escolas, setEscolas] = useState<any[]>([]);
+  const [professores, setProfessores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch escolas
+      const { data: escolasData } = await supabase
+        .from('escolas')
+        .select('*')
+        .eq('ativa', true);
+      
+      // Fetch professores
+      const { data: professoresData } = await supabase
+        .from('professores')
+        .select('*')
+        .eq('ativo', true);
+      
+      setEscolas(escolasData || []);
+      setProfessores(professoresData || []);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
+  // Filter data based on selected program
+  const filteredEscolas = programaFilter === 'todos' 
+    ? escolas 
+    : escolas.filter(e => e.programa?.includes(programaFilter));
+  
+  const filteredProfessores = programaFilter === 'todos'
+    ? professores
+    : professores.filter(p => p.programa?.includes(programaFilter));
+
   // Calculate stats
-  const totalEscolas = escolas.length;
-  const totalProfessores = professores.length;
+  const totalEscolas = filteredEscolas.length;
+  const totalProfessores = filteredProfessores.length;
   const totalAAPs = aaps.length;
   
   const formacoesPrevistas = programacoes.filter(p => p.tipo === 'formacao').length;
@@ -73,15 +124,15 @@ export default function AdminDashboard() {
   ];
 
   const segmentoData = [
-    { name: 'Anos Iniciais', value: professores.filter(p => p.segmento === 'anos_iniciais').length, color: 'hsl(215, 70%, 35%)' },
-    { name: 'Anos Finais', value: professores.filter(p => p.segmento === 'anos_finais').length, color: 'hsl(160, 60%, 45%)' },
-    { name: 'Ensino Médio', value: professores.filter(p => p.segmento === 'ensino_medio').length, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Anos Iniciais', value: filteredProfessores.filter(p => p.segmento === 'anos_iniciais').length, color: 'hsl(215, 70%, 35%)' },
+    { name: 'Anos Finais', value: filteredProfessores.filter(p => p.segmento === 'anos_finais').length, color: 'hsl(160, 60%, 45%)' },
+    { name: 'Ensino Médio', value: filteredProfessores.filter(p => p.segmento === 'ensino_medio').length, color: 'hsl(38, 92%, 50%)' },
   ];
 
   const componenteData = [
-    { name: 'Polivalente', value: professores.filter(p => p.componente === 'polivalente').length },
-    { name: 'Português', value: professores.filter(p => p.componente === 'lingua_portuguesa').length },
-    { name: 'Matemática', value: professores.filter(p => p.componente === 'matematica').length },
+    { name: 'Polivalente', value: filteredProfessores.filter(p => p.componente === 'polivalente').length },
+    { name: 'Português', value: filteredProfessores.filter(p => p.componente === 'lingua_portuguesa').length },
+    { name: 'Matemática', value: filteredProfessores.filter(p => p.componente === 'matematica').length },
   ];
 
   // Upcoming activities
@@ -92,10 +143,30 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="page-header">Dashboard</h1>
-        <p className="page-subtitle">Visão geral do Programa de Escolas</p>
+      {/* Header with Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="page-header">Dashboard</h1>
+          <p className="page-subtitle">
+            {programaFilter === 'todos' 
+              ? 'Visão geral de todos os programas' 
+              : `Visão do ${programaLabels[programaFilter]}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter size={18} className="text-muted-foreground" />
+          <Select value={programaFilter} onValueChange={(value) => setProgramaFilter(value as ProgramaType | 'todos')}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Filtrar por programa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os Programas</SelectItem>
+              <SelectItem value="escolas">Programa de Escolas</SelectItem>
+              <SelectItem value="regionais">Programa de Regionais de Ensino</SelectItem>
+              <SelectItem value="redes_municipais">Programa de Redes Municipais</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats Grid */}
