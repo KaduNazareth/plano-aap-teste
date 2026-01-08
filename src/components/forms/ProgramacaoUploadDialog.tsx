@@ -41,7 +41,7 @@ interface ParsedRow extends ParsedProgramacao {
 }
 
 const tiposValidos = ['formacao', 'visita', 'acompanhamento_aula'];
-const segmentosValidos = ['anos_iniciais', 'anos_finais'];
+const segmentosValidos = ['anos_iniciais', 'anos_finais', 'ensino_medio'];
 const componentesValidos = ['polivalente', 'portugues', 'matematica'];
 const programasValidos = ['escolas', 'regionais', 'redes_municipais'];
 
