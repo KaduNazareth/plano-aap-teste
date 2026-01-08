@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2 } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels } from '@/data/mockData';
 import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular } from '@/types';
@@ -21,6 +21,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { ProgramacaoUploadDialog, ParsedProgramacao } from '@/components/forms/ProgramacaoUploadDialog';
 
 type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
 
@@ -69,6 +70,7 @@ export default function ProgramacaoPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [isLoading, setIsLoading] = useState(true);
   
@@ -384,6 +386,42 @@ export default function ProgramacaoPage() {
     }
   };
 
+  const handleBatchUpload = async (programacoesData: ParsedProgramacao[]) => {
+    if (!user) {
+      toast.error('Você precisa estar logado para importar programações');
+      return;
+    }
+
+    try {
+      const insertData = programacoesData.map(prog => ({
+        tipo: prog.tipo,
+        titulo: prog.titulo,
+        descricao: prog.descricao || null,
+        data: prog.data,
+        horario_inicio: prog.horario_inicio,
+        horario_fim: prog.horario_fim,
+        escola_id: prog.escola_id,
+        aap_id: prog.aap_id,
+        segmento: prog.segmento,
+        componente: prog.componente,
+        ano_serie: prog.ano_serie,
+        programa: prog.programa,
+        status: 'prevista',
+        created_by: user.id,
+      }));
+
+      const { error } = await supabase.from('programacoes').insert(insertData);
+
+      if (error) throw error;
+
+      toast.success(`${programacoesData.length} programação(ões) importada(s) com sucesso!`);
+      fetchProgramacoes();
+    } catch (error) {
+      console.error('Error uploading programacoes:', error);
+      toast.error('Erro ao importar programações');
+    }
+  };
+
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   const getEscolaNome = (escolaId: string) => escolas.find(e => e.id === escolaId)?.nome || '-';
@@ -428,6 +466,14 @@ export default function ProgramacaoPage() {
               Lista
             </button>
           </div>
+          
+          <button
+            onClick={() => setIsUploadDialogOpen(true)}
+            className="btn-outline flex items-center gap-2"
+          >
+            <Upload size={20} />
+            Importar
+          </button>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -1066,6 +1112,15 @@ export default function ProgramacaoPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Upload Dialog */}
+      <ProgramacaoUploadDialog
+        open={isUploadDialogOpen}
+        onOpenChange={setIsUploadDialogOpen}
+        escolas={escolas}
+        aaps={aaps}
+        onUpload={handleBatchUpload}
+      />
     </div>
   );
 }
