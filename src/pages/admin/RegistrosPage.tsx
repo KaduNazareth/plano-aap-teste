@@ -109,12 +109,31 @@ const statusLabels: Record<string, string> = {
   reagendada: 'Reagendada',
 };
 
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const months = [
+  { value: '01', label: 'Janeiro' },
+  { value: '02', label: 'Fevereiro' },
+  { value: '03', label: 'Março' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Maio' },
+  { value: '06', label: 'Junho' },
+  { value: '07', label: 'Julho' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Setembro' },
+  { value: '10', label: 'Outubro' },
+  { value: '11', label: 'Novembro' },
+  { value: '12', label: 'Dezembro' },
+];
+
 export default function RegistrosPage() {
   const { user, profile, isAdmin, isGestor } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterYear, setFilterYear] = useState<string>('todos');
+  const [filterMonth, setFilterMonth] = useState<string>('todos');
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroAcaoDB | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -227,7 +246,15 @@ export default function RegistrosPage() {
     const matchesStatus = filterStatus === 'todos' || registro.status === filterStatus;
     const matchesPrograma = programaFilter === 'todos' || (registro.programa && registro.programa.includes(programaFilter));
     
-    return matchesSearch && matchesTipo && matchesStatus && matchesPrograma;
+    // Filter by year
+    const registroYear = registro.data.substring(0, 4);
+    const matchesYear = filterYear === 'todos' || registroYear === filterYear;
+    
+    // Filter by month
+    const registroMonth = registro.data.substring(5, 7);
+    const matchesMonth = filterMonth === 'todos' || registroMonth === filterMonth;
+    
+    return matchesSearch && matchesTipo && matchesStatus && matchesPrograma && matchesYear && matchesMonth;
   });
 
   const getPresencasForRegistro = (registroId: string) => {
@@ -523,6 +550,30 @@ export default function RegistrosPage() {
             <SelectItem value="realizada">Realizada</SelectItem>
             <SelectItem value="cancelada">Cancelada</SelectItem>
             <SelectItem value="reagendada">Reagendada</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select value={filterYear} onValueChange={setFilterYear}>
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="Ano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os anos</SelectItem>
+            {years.map(year => (
+              <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        <Select value={filterMonth} onValueChange={setFilterMonth}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os meses</SelectItem>
+            {months.map(month => (
+              <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
