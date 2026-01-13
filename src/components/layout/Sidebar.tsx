@@ -64,6 +64,20 @@ export function Sidebar() {
     }
   };
 
+  const getProgramLabel = () => {
+    if (isAdmin) {
+      return 'Gestão';
+    }
+    
+    const programa = profile?.programas?.[0];
+    switch (programa) {
+      case 'escolas': return 'Escolas';
+      case 'regionais': return 'Regionais de Ensino';
+      case 'redes_municipais': return 'Redes Municipais';
+      default: return 'Programa';
+    }
+  };
+
   return (
     <>
       {/* Mobile menu button */}
@@ -94,8 +108,7 @@ export function Sidebar() {
               <GraduationCap className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-sidebar-foreground">Programa</h1>
-              <p className="text-xs text-sidebar-foreground/60">de Escolas</p>
+              <h1 className="font-bold text-lg text-sidebar-foreground">{getProgramLabel()}</h1>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'admin' | 'gestor' | 'aap_inicial' | 'aap_portugues' | 'aap_matematica';
+type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
 
 interface UserProfile {
   id: string;
@@ -10,6 +11,7 @@ interface UserProfile {
   email: string;
   telefone?: string;
   role: AppRole;
+  programas?: ProgramaType[];
 }
 
 interface AuthContextType {
@@ -58,13 +60,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching role:', roleError);
       }
 
+      // Fetch gestor programas if user is gestor
+      let programas: ProgramaType[] | undefined;
+      if (roleData?.role === 'gestor') {
+        const { data: gestorProgramas } = await supabase
+          .from('gestor_programas')
+          .select('programa')
+          .eq('gestor_user_id', userId);
+        
+        if (gestorProgramas && gestorProgramas.length > 0) {
+          programas = gestorProgramas.map(p => p.programa as ProgramaType);
+        }
+      }
+
       if (profileData) {
         return {
           id: profileData.id,
           nome: profileData.nome,
           email: profileData.email,
           telefone: profileData.telefone || undefined,
-          role: (roleData?.role as AppRole) || 'aap_inicial'
+          role: (roleData?.role as AppRole) || 'aap_inicial',
+          programas
         };
       }
 
