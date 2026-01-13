@@ -39,6 +39,9 @@ interface RegistroAcaoDB {
   dificuldades: string | null;
   programa: string[] | null;
   created_at: string;
+  status: string;
+  reagendada_para: string | null;
+  is_reagendada: boolean;
 }
 
 interface PresencaDB {
@@ -92,11 +95,19 @@ const dimensoesAvaliacao = [
   { key: 'gestao_tempo', label: 'Gestão do tempo' },
 ] as const;
 
+const statusLabels: Record<string, string> = {
+  prevista: 'Prevista',
+  realizada: 'Realizada',
+  cancelada: 'Cancelada',
+  reagendada: 'Reagendada',
+};
+
 export default function RegistrosPage() {
   const { user, profile, isAdmin, isGestor } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState('todos');
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroAcaoDB | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -191,9 +202,10 @@ export default function RegistrosPage() {
       escola?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       aap?.nome.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTipo = filterTipo === 'todos' || registro.tipo === filterTipo;
+    const matchesStatus = filterStatus === 'todos' || registro.status === filterStatus;
     const matchesPrograma = programaFilter === 'todos' || (registro.programa && registro.programa.includes(programaFilter));
     
-    return matchesSearch && matchesTipo && matchesPrograma;
+    return matchesSearch && matchesTipo && matchesStatus && matchesPrograma;
   });
 
   const getPresencasForRegistro = (registroId: string) => {
@@ -319,6 +331,28 @@ export default function RegistrosPage() {
       ),
     },
     {
+      key: 'status',
+      header: 'Status',
+      render: (registro: RegistroAcaoDB) => {
+        const variant = registro.status === 'realizada' ? 'success' : 
+                       registro.status === 'cancelada' ? 'error' : 
+                       registro.status === 'reagendada' ? 'warning' : 'info';
+        return (
+          <div className="flex flex-col gap-1">
+            <StatusBadge variant={variant}>
+              {registro.is_reagendada && '🔄 '}
+              {statusLabels[registro.status] || registro.status}
+            </StatusBadge>
+            {registro.reagendada_para && (
+              <span className="text-xs text-muted-foreground">
+                → {format(parseISO(registro.reagendada_para), "dd/MM/yyyy", { locale: ptBR })}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: 'presenca',
       header: 'Presença/Avaliações',
       render: (registro: RegistroAcaoDB) => {
@@ -419,6 +453,19 @@ export default function RegistrosPage() {
             <SelectItem value="formacao">Formações</SelectItem>
             <SelectItem value="visita">Visitas</SelectItem>
             <SelectItem value="acompanhamento_aula">Acompanhamento de Aula</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            <SelectItem value="prevista">Prevista</SelectItem>
+            <SelectItem value="realizada">Realizada</SelectItem>
+            <SelectItem value="cancelada">Cancelada</SelectItem>
+            <SelectItem value="reagendada">Reagendada</SelectItem>
           </SelectContent>
         </Select>
       </div>

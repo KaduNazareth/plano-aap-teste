@@ -410,10 +410,13 @@ export type Database = {
           dificuldades: string | null
           escola_id: string
           id: string
+          is_reagendada: boolean | null
           observacoes: string | null
           programa: string[] | null
           programacao_id: string | null
+          reagendada_para: string | null
           segmento: string
+          status: string
           tipo: string
           turma: string | null
           updated_at: string
@@ -428,10 +431,13 @@ export type Database = {
           dificuldades?: string | null
           escola_id: string
           id?: string
+          is_reagendada?: boolean | null
           observacoes?: string | null
           programa?: string[] | null
           programacao_id?: string | null
+          reagendada_para?: string | null
           segmento: string
+          status?: string
           tipo: string
           turma?: string | null
           updated_at?: string
@@ -446,10 +452,13 @@ export type Database = {
           dificuldades?: string | null
           escola_id?: string
           id?: string
+          is_reagendada?: boolean | null
           observacoes?: string | null
           programa?: string[] | null
           programacao_id?: string | null
+          reagendada_para?: string | null
           segmento?: string
+          status?: string
           tipo?: string
           turma?: string | null
           updated_at?: string
