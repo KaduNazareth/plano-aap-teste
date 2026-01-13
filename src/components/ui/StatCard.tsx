@@ -11,7 +11,7 @@ interface StatCardProps {
     value: number;
     label?: string;
   };
-  variant?: 'default' | 'primary' | 'accent';
+  variant?: 'default' | 'primary' | 'accent' | 'destructive';
   className?: string;
 }
 
@@ -44,13 +44,15 @@ export function StatCard({
       variant === 'default' && "bg-card border border-border/50 hover:shadow-soft",
       variant === 'primary' && "bg-gradient-to-br from-primary to-primary-hover text-primary-foreground",
       variant === 'accent' && "bg-gradient-to-br from-accent to-accent/80 text-accent-foreground",
+      variant === 'destructive' && "bg-gradient-to-br from-destructive to-destructive/80 text-destructive-foreground",
       className
     )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className={cn(
             "text-sm font-medium mb-1",
-            variant === 'default' ? "text-muted-foreground" : "opacity-90"
+            variant === 'default' ? "text-muted-foreground" : "opacity-90",
+            variant === 'destructive' && "text-destructive-foreground/90"
           )}>
             {title}
           </p>

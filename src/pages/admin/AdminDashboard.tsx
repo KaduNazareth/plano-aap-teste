@@ -7,7 +7,8 @@ import {
   Filter,
   Loader2,
   ClipboardCheck,
-  Star
+  Star,
+  AlertTriangle
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/StatCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
@@ -40,12 +41,23 @@ interface AvaliacaoWithEscola extends AvaliacaoAula {
   escola_id: string;
 }
 
+interface RegistroPendente {
+  id: string;
+  data: string;
+  tipo: string;
+  escola_id: string;
+  programa: string[] | null;
+  status: string;
+  dias_atraso: number;
+}
+
 export default function AdminDashboard() {
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const [escolas, setEscolas] = useState<any[]>([]);
   const [professores, setProfessores] = useState<any[]>([]);
   const [aaps, setAaps] = useState<AAPWithPrograma[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<AvaliacaoWithEscola[]>([]);
+  const [registrosPendentes, setRegistrosPendentes] = useState<RegistroPendente[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,10 +100,31 @@ export default function AdminDashboard() {
         .from('avaliacoes_aula')
         .select('clareza_objetivos, dominio_conteudo, estrategias_didaticas, engajamento_turma, gestao_tempo, escola_id');
       
+      // Fetch registros pendentes (agendados há mais de 2 dias e não realizados)
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+      
+      const { data: registrosPendentesData } = await supabase
+        .from('registros_acao')
+        .select('id, data, tipo, escola_id, programa, status')
+        .eq('status', 'agendada')
+        .lte('data', twoDaysAgoStr);
+      
+      // Calculate days overdue for each pending registro
+      const today = new Date();
+      const pendentesComAtraso: RegistroPendente[] = (registrosPendentesData || []).map(reg => {
+        const dataAgendada = new Date(reg.data);
+        const diffTime = today.getTime() - dataAgendada.getTime();
+        const diasAtraso = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return { ...reg, dias_atraso: diasAtraso };
+      });
+      
       setEscolas(escolasData || []);
       setProfessores(professoresData || []);
       setAaps(aapsWithProgramas);
       setAvaliacoes(avaliacoesData || []);
+      setRegistrosPendentes(pendentesComAtraso);
       setLoading(false);
     };
 
@@ -120,11 +153,17 @@ export default function AdminDashboard() {
     ? avaliacoes
     : avaliacoes.filter(av => filteredEscolaIds.includes(av.escola_id));
 
+  // Filter registros pendentes based on selected program
+  const filteredRegistrosPendentes = programaFilter === 'todos'
+    ? registrosPendentes
+    : registrosPendentes.filter(r => r.programa && r.programa.includes(programaFilter));
+
   // Calculate stats from real data
   const totalEscolas = filteredEscolas.length;
   const totalProfessores = filteredProfessores.length;
   const totalAAPs = filteredAAPs.length;
   const totalAvaliacoes = filteredAvaliacoes.length;
+  const totalPendentes = filteredRegistrosPendentes.length;
 
   // Calculate average ratings for radar chart using filtered avaliacoes
   const calcularMediaDimensao = (dimensao: keyof AvaliacaoAula) => {
@@ -196,7 +235,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="Escolas"
           value={totalEscolas}
@@ -225,7 +264,62 @@ export default function AdminDashboard() {
           icon={<ClipboardCheck size={24} />}
           variant="primary"
         />
+        <StatCard
+          title="Ações Pendentes"
+          value={totalPendentes}
+          icon={<AlertTriangle size={24} />}
+          variant={totalPendentes > 0 ? "destructive" : "default"}
+        />
       </div>
+
+      {/* Pending Actions Alert */}
+      {totalPendentes > 0 && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-destructive/20 rounded-lg">
+              <AlertTriangle className="text-destructive" size={24} />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-destructive mb-2">
+                {totalPendentes} {totalPendentes === 1 ? 'ação pendente' : 'ações pendentes'} há mais de 2 dias
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                As seguintes ações estão agendadas há mais de 2 dias e ainda não foram atualizadas:
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {filteredRegistrosPendentes.slice(0, 10).map((reg) => {
+                  const escola = escolas.find(e => e.id === reg.escola_id);
+                  return (
+                    <div 
+                      key={reg.id} 
+                      className="flex items-center justify-between bg-background/50 rounded-lg p-3 text-sm"
+                    >
+                      <div>
+                        <span className="font-medium">{reg.tipo}</span>
+                        <span className="text-muted-foreground"> em </span>
+                        <span className="font-medium">{escola?.nome || 'Escola não encontrada'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          {new Date(reg.data).toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="px-2 py-1 bg-destructive/20 text-destructive text-xs font-medium rounded">
+                          {reg.dias_atraso} {reg.dias_atraso === 1 ? 'dia' : 'dias'} de atraso
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {totalPendentes > 10 && (
+                  <p className="text-sm text-muted-foreground text-center pt-2">
+                    ... e mais {totalPendentes - 10} {totalPendentes - 10 === 1 ? 'ação pendente' : 'ações pendentes'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Empty State */}
       {totalEscolas === 0 && totalProfessores === 0 && (
