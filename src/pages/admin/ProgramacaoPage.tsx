@@ -334,16 +334,43 @@ export default function ProgramacaoPage() {
     setIsSubmitting(true);
     
     try {
+      // Determine status
+      const newStatus = acaoRealizada ? 'realizada' : (reagendar ? 'reagendada' : 'cancelada');
+      
       // Update programacao status
       const { error: updateError } = await supabase
         .from('programacoes')
         .update({
-          status: acaoRealizada ? 'realizada' : 'cancelada',
+          status: newStatus,
           motivo_cancelamento: acaoRealizada ? null : motivoCancelamento,
         })
         .eq('id', selectedProgramacao.id);
       
       if (updateError) throw updateError;
+      
+      // Create registro_acao for this programacao
+      const { data: newProgramacao, error: registroError } = await supabase
+        .from('registros_acao')
+        .insert({
+          aap_id: selectedProgramacao.aap_id,
+          ano_serie: selectedProgramacao.ano_serie,
+          componente: selectedProgramacao.componente,
+          data: selectedProgramacao.data,
+          escola_id: selectedProgramacao.escola_id,
+          programa: selectedProgramacao.programa,
+          programacao_id: selectedProgramacao.id,
+          segmento: selectedProgramacao.segmento,
+          tipo: selectedProgramacao.tipo,
+          status: newStatus,
+          is_reagendada: reagendar,
+          reagendada_para: reagendar ? novaData : null,
+        })
+        .select()
+        .single();
+      
+      if (registroError) {
+        console.error('Error creating registro:', registroError);
+      }
       
       // If reagendar, create new programacao
       if (reagendar && !acaoRealizada) {
