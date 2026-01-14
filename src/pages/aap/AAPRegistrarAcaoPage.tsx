@@ -602,8 +602,12 @@ export default function AAPRegistrarAcaoPage() {
                   <span>{format(parseISO(selectedProgramacao.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
                   <span>•</span>
                   <span>{getEscolaNome(selectedProgramacao.escola_id)}</span>
-                  <span>•</span>
-                  <span>{segmentoLabels[selectedProgramacao.segmento as Segmento]} - {selectedProgramacao.ano_serie}</span>
+                  {selectedProgramacao.tipo !== 'visita' && (
+                    <>
+                      <span>•</span>
+                      <span>{segmentoLabels[selectedProgramacao.segmento as Segmento]} - {selectedProgramacao.ano_serie}</span>
+                    </>
+                  )}
                 </div>
               </div>
 
