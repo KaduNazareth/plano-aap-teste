@@ -259,7 +259,7 @@ export default function RelatoriosPage() {
       presenca: total > 0 ? Math.round((presentes / total) * 100) : 0,
       totalPresencas: total,
     };
-  }).sort((a, b) => b.presenca - a.presenca);
+  }).sort((a, b) => a.name.localeCompare(b.name));
 
   // Get AAPs from profiles that have registros
   const aapIds = [...new Set(registros.map(r => r.aap_id))];
