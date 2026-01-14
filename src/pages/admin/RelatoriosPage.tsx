@@ -897,11 +897,11 @@ export default function RelatoriosPage() {
               <div className="bg-card rounded-xl border border-border p-6 lg:row-span-2">
                 <h3 className="card-title mb-2">Presença por Escola</h3>
                 <div>
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px]">
                     <thead className="bg-muted sticky top-0">
                       <tr>
-                        <th className="text-left py-1 px-1.5 font-medium text-muted-foreground">Escola</th>
-                        <th className="text-right py-1 px-1.5 font-medium text-muted-foreground">%</th>
+                        <th className="text-left py-1.5 px-2 font-medium text-muted-foreground border-b border-border">Escola</th>
+                        <th className="text-right py-1.5 px-2 font-medium text-muted-foreground border-b border-border">%</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -910,8 +910,8 @@ export default function RelatoriosPage() {
                           key={escola.id} 
                           className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
                         >
-                          <td className="py-0.5 px-1.5 text-foreground leading-tight">{escola.name}</td>
-                          <td className="py-0.5 px-1.5 text-right">
+                          <td className="py-1 px-2 text-foreground leading-normal">{escola.name}</td>
+                          <td className="py-1 px-2 text-right">
                             <span className={`font-medium ${
                               escola.presenca >= 80 ? 'text-success' : 
                               escola.presenca >= 50 ? 'text-warning' : 
