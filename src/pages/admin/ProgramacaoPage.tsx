@@ -31,6 +31,20 @@ const programaLabels: Record<ProgramaType, string> = {
   redes_municipais: 'Redes Mun.',
 };
 
+// Mapeamento de papel AAP para segmento e componente
+const getAAPSegmentoComponente = (role: string | undefined) => {
+  switch (role) {
+    case 'aap_inicial':
+      return { segmentos: ['anos_iniciais'], componentes: ['polivalente'] };
+    case 'aap_portugues':
+      return { segmentos: ['anos_finais', 'ensino_medio'], componentes: ['lingua_portuguesa'] };
+    case 'aap_matematica':
+      return { segmentos: ['anos_finais', 'ensino_medio'], componentes: ['matematica'] };
+    default:
+      return { segmentos: Object.keys(segmentoLabels), componentes: Object.keys(componenteLabels) };
+  }
+};
+
 interface Escola {
   id: string;
   nome: string;
@@ -169,12 +183,18 @@ export default function ProgramacaoPage() {
         setAapProgramas(userAapProgramas);
         setAapEscolasIds(userAapEscolasIds);
         
-        // Set default programa for form if AAP has only one programa
-        if (userAapProgramas.length === 1) {
-          setFormData(prev => ({ ...prev, programa: [userAapProgramas[0]], aapId: user.id }));
-        } else {
-          setFormData(prev => ({ ...prev, aapId: user.id }));
-        }
+        // Set default values based on AAP role
+        const aapConfig = getAAPSegmentoComponente(profile?.role);
+        const defaultSegmento = aapConfig.segmentos[0] as Segmento;
+        const defaultComponente = aapConfig.componentes[0] as ComponenteCurricular;
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          programa: userAapProgramas.length === 1 ? [userAapProgramas[0]] : prev.programa,
+          aapId: user.id,
+          segmento: defaultSegmento,
+          componente: defaultComponente,
+        }));
       }
       
       // Fetch escolas - filter by gestor's programa if applicable
@@ -734,10 +754,16 @@ export default function ProgramacaoPage() {
                       })}
                       className="input-field"
                       required
+                      disabled={isAAP && getAAPSegmentoComponente(profile?.role).segmentos.length === 1}
                     >
-                      {Object.entries(segmentoLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
+                      {(() => {
+                        const allowedSegmentos = isAAP 
+                          ? getAAPSegmentoComponente(profile?.role).segmentos 
+                          : Object.keys(segmentoLabels);
+                        return allowedSegmentos.map(value => (
+                          <option key={value} value={value}>{segmentoLabels[value as Segmento]}</option>
+                        ));
+                      })()}
                     </select>
                   </div>
                   
@@ -748,10 +774,16 @@ export default function ProgramacaoPage() {
                       onChange={(e) => setFormData({ ...formData, componente: e.target.value as ComponenteCurricular })}
                       className="input-field"
                       required
+                      disabled={isAAP && getAAPSegmentoComponente(profile?.role).componentes.length === 1}
                     >
-                      {Object.entries(componenteLabels).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
+                      {(() => {
+                        const allowedComponentes = isAAP 
+                          ? getAAPSegmentoComponente(profile?.role).componentes 
+                          : Object.keys(componenteLabels);
+                        return allowedComponentes.map(value => (
+                          <option key={value} value={value}>{componenteLabels[value as ComponenteCurricular]}</option>
+                        ));
+                      })()}
                     </select>
                   </div>
                   
