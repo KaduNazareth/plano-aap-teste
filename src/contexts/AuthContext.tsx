@@ -12,6 +12,7 @@ interface UserProfile {
   telefone?: string;
   role: AppRole;
   programas?: ProgramaType[];
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextType {
@@ -26,6 +27,8 @@ interface AuthContextType {
   isGestor: boolean;
   isAAP: boolean;
   isAdminOrGestor: boolean;
+  mustChangePassword: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,7 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: profileData.email,
           telefone: profileData.telefone || undefined,
           role: (roleData?.role as AppRole) || 'aap_inicial',
-          programas
+          programas,
+          mustChangePassword: profileData.must_change_password || false,
         };
       }
 
@@ -162,10 +166,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (user) {
+      const profileData = await fetchProfile(user.id);
+      setProfile(profileData);
+    }
+  }, [user, fetchProfile]);
+
   const isAdmin = profile?.role === 'admin';
   const isGestor = profile?.role === 'gestor';
   const isAAP = profile?.role?.startsWith('aap_') || false;
   const isAdminOrGestor = isAdmin || isGestor;
+  const mustChangePassword = profile?.mustChangePassword || false;
 
   return (
     <AuthContext.Provider value={{ 
@@ -179,7 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isGestor,
       isAAP,
-      isAdminOrGestor
+      isAdminOrGestor,
+      mustChangePassword,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>

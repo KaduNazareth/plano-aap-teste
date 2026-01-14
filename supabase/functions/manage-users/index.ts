@@ -69,8 +69,9 @@ Deno.serve(async (req) => {
     const { action, ...params } = await req.json();
 
     switch (action) {
-      case 'create': {
-        const { email, password, nome, telefone, role } = params;
+      case 'create':
+      case 'create-batch': {
+        const { email, password, nome, telefone, role, mustChangePassword } = params;
 
         if (!email || !password || !nome) {
           return new Response(JSON.stringify({ error: 'Email, password and name are required' }), {
@@ -101,12 +102,18 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Update profile with telefone if provided
-        if (telefone && newUser.user) {
-          await supabaseAdmin
-            .from('profiles')
-            .update({ telefone })
-            .eq('id', newUser.user.id);
+        // Update profile with telefone and must_change_password flag
+        if (newUser.user) {
+          const updateData: Record<string, unknown> = {};
+          if (telefone) updateData.telefone = telefone;
+          if (mustChangePassword === true) updateData.must_change_password = true;
+          
+          if (Object.keys(updateData).length > 0) {
+            await supabaseAdmin
+              .from('profiles')
+              .update(updateData)
+              .eq('id', newUser.user.id);
+          }
         }
 
         // Assign role if provided
