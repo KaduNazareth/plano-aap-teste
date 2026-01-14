@@ -171,13 +171,46 @@ export default function RegistrosPage() {
   const [avaliacaoList, setAvaliacaoList] = useState<AvaliacaoAulaItem[]>([]);
   const [selectedProfessorAvaliacao, setSelectedProfessorAvaliacao] = useState<string | null>(null);
 
-  const { data: registros = [], isLoading: isLoadingRegistros } = useQuery({
-    queryKey: ['registros_acao'],
+  // Fetch gestor programs if user is gestor
+  const { data: gestorProgramas = [] } = useQuery({
+    queryKey: ['gestor_programas', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('registros_acao').select('*').order('data', { ascending: false });
+      if (!user || !isGestor) return [];
+      const { data, error } = await supabase
+        .from('gestor_programas')
+        .select('programa')
+        .eq('gestor_user_id', user.id);
       if (error) throw error;
-      return data as RegistroAcaoDB[];
+      return data.map(p => p.programa as ProgramaType);
     },
+    enabled: !!user && isGestor,
+  });
+
+  const { data: registros = [], isLoading: isLoadingRegistros } = useQuery({
+    queryKey: ['registros_acao', user?.id, isAdmin, isGestor, gestorProgramas],
+    queryFn: async () => {
+      let query = supabase.from('registros_acao').select('*').order('data', { ascending: false });
+      
+      // AAP/Formador: only sees their own actions
+      if (!isAdmin && !isGestor && user) {
+        query = query.eq('aap_id', user.id);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      let result = data as RegistroAcaoDB[];
+      
+      // Gestor: filter by their assigned programs (client-side since programa is an array)
+      if (isGestor && !isAdmin && gestorProgramas.length > 0) {
+        result = result.filter(r => 
+          r.programa && r.programa.some(p => gestorProgramas.includes(p as ProgramaType))
+        );
+      }
+      
+      return result;
+    },
+    enabled: !!user,
   });
 
   const { data: presencas = [] } = useQuery({
@@ -681,7 +714,13 @@ export default function RegistrosPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="page-header">Registros de Ações</h1>
-          <p className="page-subtitle">Visualize os registros de visitas e formações realizadas</p>
+          <p className="page-subtitle">
+            {isAdmin 
+              ? 'Visualize todos os registros de ações' 
+              : isGestor 
+                ? 'Visualize os registros dos seus programas' 
+                : 'Visualize seus registros de ações'}
+          </p>
         </div>
         <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2">
           <Download size={18} />
