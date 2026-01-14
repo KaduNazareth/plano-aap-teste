@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Eye, Calendar, MapPin, User, MessageSquare, TrendingUp, AlertCircle, Loader2, Edit, Star, History, Download, XCircle, CalendarClock, Check, X, Users, ClipboardCheck, ChevronRight } from 'lucide-react';
+import { Search, Eye, Calendar, MapPin, User, MessageSquare, TrendingUp, AlertCircle, Loader2, Edit, Star, History, Download, XCircle, CalendarClock, Check, X, Users, ClipboardCheck, ChevronRight, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { DataTable } from '@/components/ui/DataTable';
@@ -21,6 +21,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
@@ -170,6 +180,11 @@ export default function RegistrosPage() {
   const [presencaList, setPresencaList] = useState<PresencaItem[]>([]);
   const [avaliacaoList, setAvaliacaoList] = useState<AvaliacaoAulaItem[]>([]);
   const [selectedProfessorAvaliacao, setSelectedProfessorAvaliacao] = useState<string | null>(null);
+  
+  // Estados para exclusão
+  const [registroToDelete, setRegistroToDelete] = useState<RegistroAcaoDB | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch gestor programs if user is gestor
   const { data: gestorProgramas = [] } = useQuery({
@@ -545,6 +560,58 @@ export default function RegistrosPage() {
     }
   };
 
+  // Handle delete registro
+  const handleDeleteRegistro = async () => {
+    if (!registroToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete related presencas first
+      const { error: presencasDeleteError } = await supabase
+        .from('presencas')
+        .delete()
+        .eq('registro_acao_id', registroToDelete.id);
+      
+      if (presencasDeleteError) throw presencasDeleteError;
+      
+      // Delete related avaliacoes_aula
+      const { error: avaliacoesDeleteError } = await supabase
+        .from('avaliacoes_aula')
+        .delete()
+        .eq('registro_acao_id', registroToDelete.id);
+      
+      if (avaliacoesDeleteError) throw avaliacoesDeleteError;
+      
+      // Delete related registros_alteracoes
+      const { error: alteracoesDeleteError } = await supabase
+        .from('registros_alteracoes')
+        .delete()
+        .eq('registro_id', registroToDelete.id);
+      
+      if (alteracoesDeleteError) throw alteracoesDeleteError;
+      
+      // Delete the registro itself
+      const { error } = await supabase
+        .from('registros_acao')
+        .delete()
+        .eq('id', registroToDelete.id);
+      
+      if (error) throw error;
+      
+      toast.success('Registro excluído com sucesso!');
+      setIsDeleteDialogOpen(false);
+      setRegistroToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+      queryClient.invalidateQueries({ queryKey: ['presencas'] });
+      queryClient.invalidateQueries({ queryKey: ['avaliacoes_aula'] });
+    } catch (error) {
+      console.error('Error deleting registro:', error);
+      toast.error('Erro ao excluir registro');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleExportExcel = () => {
     const exportData = filteredRegistros.map(registro => ({
       'Data': format(parseISO(registro.data), "dd/MM/yyyy", { locale: ptBR }),
@@ -708,6 +775,18 @@ export default function RegistrosPage() {
               >
                 <Edit size={16} />
               </button>
+              {(isAdmin || isGestor) && (
+                <button
+                  onClick={() => {
+                    setRegistroToDelete(registro);
+                    setIsDeleteDialogOpen(true);
+                  }}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                  title="Excluir Registro"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1390,6 +1469,41 @@ export default function RegistrosPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este registro de ação?
+              {registroToDelete && (
+                <div className="mt-2 p-3 rounded-lg bg-muted text-foreground">
+                  <p className="font-medium">{tipoAcaoLabels[registroToDelete.tipo] || registroToDelete.tipo}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(parseISO(registroToDelete.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {' - '}
+                    {getEscolaNome(registroToDelete.escola_id)}
+                  </p>
+                </div>
+              )}
+              <p className="mt-2 text-sm text-destructive">
+                Esta ação não pode ser desfeita. Presenças, avaliações e alterações vinculadas também serão excluídas.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteRegistro}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="animate-spin" size={16} /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

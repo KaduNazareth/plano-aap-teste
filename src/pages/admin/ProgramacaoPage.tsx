@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels } from '@/data/mockData';
 import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular } from '@/types';
@@ -20,7 +20,18 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ProgramacaoUploadDialog, ParsedProgramacao } from '@/components/forms/ProgramacaoUploadDialog';
 
 type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
@@ -112,6 +123,11 @@ export default function ProgramacaoPage() {
   const [novoHorarioInicio, setNovoHorarioInicio] = useState('');
   const [novoHorarioFim, setNovoHorarioFim] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Estados para exclusão
+  const [programacaoToDelete, setProgramacaoToDelete] = useState<ProgramacaoDB | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [formData, setFormData] = useState({
     tipo: 'formacao' as TipoAcao,
@@ -461,6 +477,50 @@ export default function ProgramacaoPage() {
       toast.error('Erro ao atualizar programação');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+  
+  // Handle delete programacao
+  const handleDeleteProgramacao = async () => {
+    if (!programacaoToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Check if there's a registro_acao linked to this programacao
+      const { data: registros, error: registroCheckError } = await supabase
+        .from('registros_acao')
+        .select('id')
+        .eq('programacao_id', programacaoToDelete.id);
+      
+      if (registroCheckError) throw registroCheckError;
+      
+      if (registros && registros.length > 0) {
+        // Delete linked registros first (if any)
+        const { error: registroDeleteError } = await supabase
+          .from('registros_acao')
+          .delete()
+          .eq('programacao_id', programacaoToDelete.id);
+        
+        if (registroDeleteError) throw registroDeleteError;
+      }
+      
+      // Delete the programacao
+      const { error } = await supabase
+        .from('programacoes')
+        .delete()
+        .eq('id', programacaoToDelete.id);
+      
+      if (error) throw error;
+      
+      toast.success('Programação excluída com sucesso!');
+      setIsDeleteDialogOpen(false);
+      setProgramacaoToDelete(null);
+      fetchProgramacoes();
+    } catch (error) {
+      console.error('Error deleting programacao:', error);
+      toast.error('Erro ao excluir programação');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1040,16 +1100,31 @@ export default function ProgramacaoPage() {
                         >
                           {event.status === 'realizada' ? 'Realizada' : event.status === 'prevista' ? 'Prevista' : 'Cancelada'}
                         </StatusBadge>
-                        {event.status === 'prevista' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenManageDialog(event)}
-                          >
-                            <Edit size={14} className="mr-1" />
-                            Gerenciar
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {event.status === 'prevista' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenManageDialog(event)}
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Gerenciar
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setProgramacaoToDelete(event);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {event.motivo_cancelamento && (
                         <div className="text-xs text-muted-foreground bg-destructive/10 p-2 rounded">
@@ -1112,16 +1187,31 @@ export default function ProgramacaoPage() {
                         </StatusBadge>
                       </td>
                       <td className="px-4 py-3">
-                        {prog.status === 'prevista' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenManageDialog(prog)}
-                          >
-                            <Edit size={14} className="mr-1" />
-                            Gerenciar
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {prog.status === 'prevista' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenManageDialog(prog)}
+                            >
+                              <Edit size={14} className="mr-1" />
+                              Gerenciar
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setProgramacaoToDelete(prog);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1273,6 +1363,41 @@ export default function ProgramacaoPage() {
         aaps={aaps}
         onUpload={handleBatchUpload}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta programação?
+              {programacaoToDelete && (
+                <div className="mt-2 p-3 rounded-lg bg-muted text-foreground">
+                  <p className="font-medium">{programacaoToDelete.titulo}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(parseISO(programacaoToDelete.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {' - '}
+                    {getEscolaNome(programacaoToDelete.escola_id)}
+                  </p>
+                </div>
+              )}
+              <p className="mt-2 text-sm text-destructive">
+                Esta ação não pode ser desfeita. Os registros de ação vinculados também serão excluídos.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProgramacao}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="animate-spin" size={16} /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
