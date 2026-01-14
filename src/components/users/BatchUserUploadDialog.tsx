@@ -22,12 +22,14 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type AppRole = 'admin' | 'gestor' | 'aap_inicial' | 'aap_portugues' | 'aap_matematica';
+type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
 
 interface BatchUser {
   nome: string;
   email: string;
   senha: string;
   papel: string;
+  programa: string;
   status?: 'pending' | 'success' | 'error';
   message?: string;
 }
@@ -60,6 +62,22 @@ const roleLabels: Record<AppRole, string> = {
   aap_inicial: 'AAP Anos Iniciais',
   aap_portugues: 'AAP Língua Portuguesa',
   aap_matematica: 'AAP Matemática',
+};
+
+const programaMapping: Record<string, ProgramaType | null> = {
+  'escolas': 'escolas',
+  'programa de escolas': 'escolas',
+  'regionais': 'regionais',
+  'regionais de ensino': 'regionais',
+  'redes_municipais': 'redes_municipais',
+  'redes municipais': 'redes_municipais',
+  '': null,
+};
+
+const programaLabels: Record<ProgramaType, string> = {
+  escolas: 'Escolas',
+  regionais: 'Regionais',
+  redes_municipais: 'Redes Mun.',
 };
 
 export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUploadDialogProps) {
@@ -97,6 +115,7 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
               email: parts[1],
               senha: parts[2],
               papel: parts[3] || '',
+              programa: parts[4] || '',
               status: 'pending',
             });
           }
@@ -120,7 +139,7 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
   };
 
   const downloadTemplate = () => {
-    const template = 'nome;email;senha;papel\nJoão Silva;joao@email.com;Senha@123;aap_inicial\nMaria Santos;maria@email.com;Senha@123;gestor';
+    const template = 'nome;email;senha;papel;programa\nJoão Silva;joao@email.com;Senha@123;aap_inicial;escolas\nMaria Santos;maria@email.com;Senha@123;gestor;regionais\nCarlos Admin;carlos@email.com;Senha@123;admin;';
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -152,6 +171,12 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
         toast.error(`Papel inválido para o usuário ${user.nome}: ${user.papel}`);
         return false;
       }
+      
+      // Validate programa if provided
+      if (user.programa && !programaMapping[user.programa.toLowerCase()]) {
+        toast.error(`Programa inválido para o usuário ${user.nome}: ${user.programa}`);
+        return false;
+      }
     }
     return true;
   };
@@ -178,6 +203,10 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
     for (let i = 0; i < updatedUsers.length; i++) {
       const user = updatedUsers[i];
       const role = roleMapping[user.papel.toLowerCase()] || null;
+      const programa = programaMapping[user.programa.toLowerCase()] || null;
+      
+      // Build programas array if programa is provided
+      const programas = programa ? [programa] : [];
       
       try {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`, {
@@ -192,6 +221,7 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
             password: user.senha,
             nome: user.nome,
             role: role,
+            programas: programas,
             mustChangePassword: true,
           }),
         });
@@ -247,6 +277,10 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
     return roleMapping[papel.toLowerCase()] || null;
   };
 
+  const getMappedPrograma = (programa: string): ProgramaType | null => {
+    return programaMapping[programa.toLowerCase()] || null;
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh]">
@@ -269,6 +303,7 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
                   <li><strong>email</strong> - Email do usuário</li>
                   <li><strong>senha</strong> - Senha inicial (mínimo 8 caracteres)</li>
                   <li><strong>papel</strong> - admin, gestor, aap_inicial, aap_portugues ou aap_matematica (opcional)</li>
+                  <li><strong>programa</strong> - escolas, regionais ou redes_municipais (opcional, obrigatório para AAP e Gestor)</li>
                 </ul>
                 <p className="text-sm text-primary font-medium">
                   ⚠️ Todos os usuários serão obrigados a alterar a senha no primeiro acesso.
@@ -316,12 +351,14 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Papel</TableHead>
+                      <TableHead>Programa</TableHead>
                       <TableHead className="w-32">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.map((user, index) => {
                       const mappedRole = getMappedRole(user.papel);
+                      const mappedPrograma = getMappedPrograma(user.programa);
                       return (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{user.nome}</TableCell>
@@ -331,6 +368,15 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
                               <Badge variant="outline">{roleLabels[mappedRole]}</Badge>
                             ) : (
                               <span className="text-muted-foreground">Sem papel</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {mappedPrograma ? (
+                              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {programaLabels[mappedPrograma]}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
                           <TableCell>

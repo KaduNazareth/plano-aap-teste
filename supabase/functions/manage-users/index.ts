@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     switch (action) {
       case 'create':
       case 'create-batch': {
-        const { email, password, nome, telefone, role, mustChangePassword } = params;
+        const { email, password, nome, telefone, role, mustChangePassword, programas } = params;
 
         if (!email || !password || !nome) {
           return new Response(JSON.stringify({ error: 'Email, password and name are required' }), {
@@ -121,6 +121,25 @@ Deno.serve(async (req) => {
           await supabaseAdmin
             .from('user_roles')
             .insert({ user_id: newUser.user.id, role });
+          
+          // Assign programas based on role type
+          if (programas && Array.isArray(programas) && programas.length > 0) {
+            if (role.startsWith('aap_')) {
+              // Insert into aap_programas
+              const programasToInsert = programas.map((p: string) => ({
+                aap_user_id: newUser.user!.id,
+                programa: p,
+              }));
+              await supabaseAdmin.from('aap_programas').insert(programasToInsert);
+            } else if (role === 'gestor') {
+              // Insert into gestor_programas
+              const programasToInsert = programas.map((p: string) => ({
+                gestor_user_id: newUser.user!.id,
+                programa: p,
+              }));
+              await supabaseAdmin.from('gestor_programas').insert(programasToInsert);
+            }
+          }
         }
 
         return new Response(JSON.stringify({ success: true, user: newUser.user }), {
