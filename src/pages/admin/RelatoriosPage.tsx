@@ -492,6 +492,17 @@ export default function RelatoriosPage() {
     try {
       const element = reportRef.current;
       
+      // Force desktop width for PDF export (regardless of current viewport)
+      const desktopWidth = 1200; // Desktop breakpoint
+      const originalWidth = element.style.width;
+      const originalMinWidth = element.style.minWidth;
+      const originalMaxWidth = element.style.maxWidth;
+      
+      // Temporarily set desktop width
+      element.style.width = `${desktopWidth}px`;
+      element.style.minWidth = `${desktopWidth}px`;
+      element.style.maxWidth = `${desktopWidth}px`;
+      
       // A4 dimensions in mm
       const a4Width = 210;
       const a4Height = 297;
@@ -550,13 +561,23 @@ export default function RelatoriosPage() {
       const periodoText = `${programaText} - ${mesText}/${new Date().getFullYear()}`;
       pdf.text(periodoText, logoX + logoWidth + 5, logoY + 10);
       
-      // Capture content area
+      // Wait for layout to update with desktop width
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Capture content area with desktop layout
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        width: desktopWidth,
+        windowWidth: desktopWidth,
       });
+      
+      // Restore original styles
+      element.style.width = originalWidth;
+      element.style.minWidth = originalMinWidth;
+      element.style.maxWidth = originalMaxWidth;
       
       const imgData = canvas.toDataURL('image/png');
       
