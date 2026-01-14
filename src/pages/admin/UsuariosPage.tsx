@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Shield, Loader2, UserCog, Plus, Trash2, Edit, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Search, Shield, Loader2, UserCog, Plus, Trash2, Edit, KeyRound, Eye, EyeOff, Users } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BatchUserUploadDialog } from '@/components/users/BatchUserUploadDialog';
 
 type AppRole = 'admin' | 'gestor' | 'aap_inicial' | 'aap_portugues' | 'aap_matematica';
 type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
@@ -79,6 +80,7 @@ export default function UsuariosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [batchUploadOpen, setBatchUploadOpen] = useState(false);
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -529,10 +531,16 @@ export default function UsuariosPage() {
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => openDialog('create')} className="gap-2">
-            <Plus size={18} />
-            Novo Usuário
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBatchUploadOpen(true)} className="gap-2">
+              <Users size={18} />
+              Cadastro em Lote
+            </Button>
+            <Button onClick={() => openDialog('create')} className="gap-2">
+              <Plus size={18} />
+              Novo Usuário
+            </Button>
+          </div>
         )}
       </div>
 
@@ -856,6 +864,16 @@ export default function UsuariosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch User Upload Dialog */}
+      <BatchUserUploadDialog 
+        open={batchUploadOpen} 
+        onClose={() => setBatchUploadOpen(false)}
+        onSuccess={() => {
+          setBatchUploadOpen(false);
+          fetchUsers();
+        }}
+      />
     </div>
   );
 }

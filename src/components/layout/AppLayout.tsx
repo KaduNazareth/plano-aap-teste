@@ -1,9 +1,10 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
+import { ForcePasswordChangeDialog } from '@/components/auth/ForcePasswordChangeDialog';
 
 export function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, profile, refreshProfile } = useAuth();
 
   if (isLoading) {
     return (
@@ -25,6 +26,13 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
+      
+      {/* Force password change dialog */}
+      <ForcePasswordChangeDialog 
+        open={mustChangePassword} 
+        onSuccess={refreshProfile}
+        userName={profile?.nome?.split(' ')[0]}
+      />
     </div>
   );
 }
