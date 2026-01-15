@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Eye, Calendar, MapPin, User, MessageSquare, TrendingUp, AlertCircle, Loader2, Edit, Star, History, Download, XCircle, CalendarClock, Check, X, Users, ClipboardCheck, ChevronRight, Trash2, GraduationCap, ClipboardList } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -169,6 +170,7 @@ const months = [
 export default function RegistrosPage() {
   const { user, profile, isAdmin, isGestor, isAAP } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -176,6 +178,14 @@ export default function RegistrosPage() {
   const [filterMonth, setFilterMonth] = useState<string>('todos');
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroAcaoDB | null>(null);
+  
+  // Check URL params for status filter
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam === 'pendentes') {
+      setFilterStatus('pendentes');
+    }
+  }, [searchParams]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -349,7 +359,8 @@ export default function RegistrosPage() {
       escola?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       aap?.nome.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTipo = filterTipo === 'todos' || registro.tipo === filterTipo;
-    const matchesStatus = filterStatus === 'todos' || registro.status === filterStatus;
+    const matchesStatus = filterStatus === 'todos' || 
+      (filterStatus === 'pendentes' ? (registro.status === 'agendada' || registro.status === 'reagendada') : registro.status === filterStatus);
     const matchesPrograma = programaFilter === 'todos' || (registro.programa && registro.programa.includes(programaFilter));
     
     // Filter by year
@@ -940,13 +951,21 @@ export default function RegistrosPage() {
           </SelectContent>
         </Select>
         
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={filterStatus} onValueChange={(value) => {
+          setFilterStatus(value);
+          // Clear URL param when filter changes
+          if (searchParams.has('status')) {
+            searchParams.delete('status');
+            setSearchParams(searchParams);
+          }
+        }}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os status</SelectItem>
-            <SelectItem value="prevista">Prevista</SelectItem>
+            <SelectItem value="pendentes">Pendentes (Agendada/Reagendada)</SelectItem>
+            <SelectItem value="agendada">Agendada</SelectItem>
             <SelectItem value="realizada">Realizada</SelectItem>
             <SelectItem value="cancelada">Cancelada</SelectItem>
             <SelectItem value="reagendada">Reagendada</SelectItem>

@@ -538,7 +538,7 @@ export default function AdminDashboard() {
           value={totalPendentes}
           icon={<AlertTriangle size={24} />}
           variant={totalPendentes > 0 ? "destructive" : "default"}
-          href="/registros"
+          href="/registros?status=pendentes"
         />
       </div>
 
