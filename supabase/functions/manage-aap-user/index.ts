@@ -392,7 +392,8 @@ serve(async (req) => {
         const { data: profiles, error: profilesError } = await supabaseAdmin
           .from('profiles')
           .select('*')
-          .in('id', userIds);
+          .in('id', userIds)
+          .order('nome');
 
         if (profilesError) {
           console.error('Profiles fetch error:', profilesError);
@@ -418,7 +419,7 @@ serve(async (req) => {
           console.error('Programas fetch error:', programasError);
         }
 
-        // Combine data
+        // Combine data and sort by name
         const users = filteredUserRoles.map(ur => {
           const profile = profiles?.find(p => p.id === ur.user_id);
           const escolas = escolaAssignments
@@ -438,7 +439,7 @@ serve(async (req) => {
             programas: programas,
             createdAt: profile?.created_at
           };
-        }) || [];
+        }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) || [];
 
         return new Response(JSON.stringify({ users }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
