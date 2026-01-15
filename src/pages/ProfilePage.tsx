@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { User, Mail, Phone, Save, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { z } from 'zod';
+import { validatePassword } from '@/lib/passwordValidation';
+import { PasswordRequirements } from '@/components/auth/PasswordRequirements';
 
 const profileSchema = z.object({
   nome: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100, 'Nome muito longo'),
@@ -11,7 +13,9 @@ const profileSchema = z.object({
 });
 
 const passwordSchema = z.object({
-  newPassword: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
+  newPassword: z.string().refine((val) => validatePassword(val).isValid, {
+    message: 'A senha não atende aos requisitos de segurança',
+  }),
   confirmPassword: z.string(),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: 'As senhas não coincidem',
@@ -235,9 +239,8 @@ export default function ProfilePage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="input-field pr-10"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Digite sua nova senha"
                     disabled={isChangingPassword}
-                    minLength={6}
                     required
                   />
                   <button
@@ -262,10 +265,11 @@ export default function ProfilePage() {
                   className="input-field"
                   placeholder="Repita a senha"
                   disabled={isChangingPassword}
-                  minLength={6}
                   required
                 />
               </div>
+
+              <PasswordRequirements password={newPassword} />
 
               <div className="flex gap-2">
                 <button
@@ -282,7 +286,7 @@ export default function ProfilePage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isChangingPassword}
+                  disabled={isChangingPassword || !validatePassword(newPassword).isValid}
                   className="btn-primary flex-1 flex items-center justify-center gap-2"
                 >
                   {isChangingPassword ? (
