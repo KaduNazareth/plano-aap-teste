@@ -294,7 +294,8 @@ export default function RelatoriosPage() {
             const { data: adminProfiles } = await supabase
               .from('profiles')
               .select('id, nome, email')
-              .in('id', adminIds);
+              .in('id', adminIds)
+              .order('nome');
             setAdminUsers(adminProfiles || []);
           }
         }
