@@ -43,7 +43,7 @@ export function StatCard({
 
   const cardContent = (
     <div className={cn(
-      "rounded-xl p-5 transition-all duration-300 animate-fade-in",
+      "rounded-xl p-5 transition-all duration-300 animate-fade-in h-full min-h-[120px]",
       variant === 'default' && "bg-card border border-border/50 hover:shadow-soft",
       variant === 'primary' && "bg-gradient-to-br from-primary to-primary-hover text-primary-foreground",
       variant === 'accent' && "bg-gradient-to-br from-accent to-accent/80 text-accent-foreground",
@@ -51,8 +51,8 @@ export function StatCard({
       href && "cursor-pointer hover:scale-[1.02] hover:shadow-lg",
       className
     )}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
+      <div className="flex items-start justify-between h-full">
+        <div className="flex-1 flex flex-col">
           <p className={cn(
             "text-sm font-medium mb-1",
             variant === 'default' ? "text-muted-foreground" : "opacity-90",
@@ -60,7 +60,7 @@ export function StatCard({
           )}>
             {title}
           </p>
-          <p className="text-3xl font-bold tracking-tight">{value}</p>
+          <p className="text-3xl font-bold tracking-tight mt-auto">{value}</p>
           {subtitle && (
             <p className={cn(
               "text-sm mt-1",
