@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sidebar } from './Sidebar';
+import { SidebarProvider } from './Sidebar';
 import { ForcePasswordChangeDialog } from '@/components/auth/ForcePasswordChangeDialog';
 
 export function AppLayout() {
@@ -19,13 +19,8 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen h-screen bg-background overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-4 lg:p-8 pt-16">
-          <Outlet />
-        </div>
-      </main>
+    <SidebarProvider>
+      <Outlet />
       
       {/* Force password change dialog */}
       <ForcePasswordChangeDialog 
@@ -33,6 +28,6 @@ export function AppLayout() {
         onSuccess={refreshProfile}
         userName={profile?.nome?.split(' ')[0]}
       />
-    </div>
+    </SidebarProvider>
   );
 }

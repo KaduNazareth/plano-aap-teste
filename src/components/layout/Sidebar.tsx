@@ -16,7 +16,17 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, createContext, useContext, ReactNode } from 'react';
+
+// Context to share sidebar state
+interface SidebarContextType {
+  isOpen: boolean;
+  setIsOpen: (value: boolean) => void;
+}
+
+const SidebarContext = createContext<SidebarContextType>({ isOpen: true, setIsOpen: () => {} });
+
+export const useSidebarState = () => useContext(SidebarContext);
 
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -47,10 +57,10 @@ const aapMenuItems = [
   { icon: Users, label: 'Professores / Coordenadores', path: '/professores' },
 ];
 
-export function Sidebar() {
+function SidebarContent() {
   const { profile, logout, isAdmin, isGestor } = useAuth();
   const location = useLocation();
-  const [isOpen, setIsOpen] = useState(true);
+  const { isOpen, setIsOpen } = useSidebarState();
   
   const menuItems = isAdmin ? adminMenuItems : isGestor ? gestorMenuItems : aapMenuItems;
 
@@ -165,4 +175,30 @@ export function Sidebar() {
       </aside>
     </>
   );
+}
+
+// Provider component that wraps the entire layout
+export function SidebarProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(true);
+  
+  return (
+    <SidebarContext.Provider value={{ isOpen, setIsOpen }}>
+      <div className="min-h-screen h-screen bg-background overflow-hidden">
+        <SidebarContent />
+        <main className={cn(
+          "h-screen overflow-y-auto transition-all duration-300 ease-in-out",
+          isOpen ? "lg:ml-72" : "ml-0"
+        )}>
+          <div className="p-4 lg:p-8 pt-16">
+            {children}
+          </div>
+        </main>
+      </div>
+    </SidebarContext.Provider>
+  );
+}
+
+// Legacy export for backwards compatibility
+export function Sidebar() {
+  return <SidebarContent />;
 }
