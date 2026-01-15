@@ -186,7 +186,7 @@ export function PdfReportContent({
         </StatCard>
 
         <StatCard>
-          <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginBottom: '8px' }}>Distribuição por Segmento</p>
+          <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginBottom: '8px' }}>% de ações por segmento</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {segmentoDistribuicao.map((seg) => (
               <div key={seg.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px' }}>

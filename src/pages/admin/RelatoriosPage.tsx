@@ -859,7 +859,7 @@ export default function RelatoriosPage() {
                 <p className="text-xs text-muted-foreground mt-1">{totalPresentes} de {totalPresencas}</p>
               </div>
               <div className="stat-card">
-                <p className="text-sm text-muted-foreground mb-2">Distribuição por Segmento</p>
+                <p className="text-sm text-muted-foreground mb-2">% de ações por segmento</p>
                 <div className="space-y-1">
                   {segmentoDistribuicao.map((seg) => (
                     <div key={seg.name} className="flex items-center justify-between text-sm">
