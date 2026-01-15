@@ -658,9 +658,9 @@ export default function RegistrosPage() {
       key: 'data',
       header: 'Data',
       render: (registro: RegistroAcaoDB) => (
-        <div className="flex items-center gap-2">
-          <Calendar size={16} className="text-muted-foreground" />
-          <span>{format(parseISO(registro.data), "dd/MM/yyyy", { locale: ptBR })}</span>
+        <div className="flex items-center gap-1.5">
+          <Calendar size={14} className="text-muted-foreground flex-shrink-0" />
+          <span className="text-xs">{format(parseISO(registro.data), "dd/MM/yyyy", { locale: ptBR })}</span>
         </div>
       ),
     },
@@ -675,11 +675,11 @@ export default function RegistrosPage() {
     },
     {
       key: 'escola',
-      header: 'Escola',
+      header: 'Escola / Regional / Rede',
       render: (registro: RegistroAcaoDB) => (
-        <div className="flex items-center gap-2">
-          <MapPin size={16} className="text-muted-foreground" />
-          <span className="text-sm">{getEscolaNome(registro.escola_id)}</span>
+        <div className="flex items-center gap-1.5">
+          <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
+          <span className="text-xs leading-tight">{getEscolaNome(registro.escola_id)}</span>
         </div>
       ),
     },
@@ -687,9 +687,9 @@ export default function RegistrosPage() {
       key: 'aap',
       header: 'AAP',
       render: (registro: RegistroAcaoDB) => (
-        <div className="flex items-center gap-2">
-          <User size={16} className="text-muted-foreground" />
-          <span className="text-sm">{getAapNome(registro.aap_id)}</span>
+        <div className="flex items-center gap-1.5">
+          <User size={14} className="text-muted-foreground flex-shrink-0" />
+          <span className="text-xs">{getAapNome(registro.aap_id)}</span>
         </div>
       ),
     },
@@ -697,7 +697,7 @@ export default function RegistrosPage() {
       key: 'segmento',
       header: 'Segmento',
       render: (registro: RegistroAcaoDB) => (
-        <span className="text-sm">{segmentoLabels[registro.segmento as Segmento]} - {registro.ano_serie}</span>
+        <span className="text-xs leading-tight">{segmentoLabels[registro.segmento as Segmento]} - {registro.ano_serie}</span>
       ),
     },
     {
