@@ -460,41 +460,46 @@ export default function AdminDashboard() {
               : `Visão do ${programaLabels[programaFilter]}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter size={18} className="text-muted-foreground" />
-          <Select value={programaFilter} onValueChange={(value) => setProgramaFilter(value as ProgramaType | 'todos')}>
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder="Filtrar por programa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Programas</SelectItem>
-              <SelectItem value="escolas">Programa de Escolas</SelectItem>
-              <SelectItem value="regionais">Programa de Regionais de Ensino</SelectItem>
-              <SelectItem value="redes_municipais">Programa de Redes Municipais</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={escolaFilter} onValueChange={setEscolaFilter}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filtrar por escola" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas as Escolas</SelectItem>
-              {escolas.map((escola) => (
-                <SelectItem key={escola.id} value={escola.id}>{escola.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={componenteFilter} onValueChange={setComponenteFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por componente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Componentes</SelectItem>
-              <SelectItem value="polivalente">Polivalente</SelectItem>
-              <SelectItem value="lingua_portuguesa">Português</SelectItem>
-              <SelectItem value="matematica">Matemática</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Filtros</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={programaFilter} onValueChange={(value) => setProgramaFilter(value as ProgramaType | 'todos')}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Programa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Programa</SelectItem>
+                <SelectItem value="escolas">Programa de Escolas</SelectItem>
+                <SelectItem value="regionais">Programa de Regionais de Ensino</SelectItem>
+                <SelectItem value="redes_municipais">Programa de Redes Municipais</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={escolaFilter} onValueChange={setEscolaFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Escola" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Escola</SelectItem>
+                {escolas.map((escola) => (
+                  <SelectItem key={escola.id} value={escola.id}>{escola.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={componenteFilter} onValueChange={setComponenteFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Componente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Componente</SelectItem>
+                <SelectItem value="polivalente">Polivalente</SelectItem>
+                <SelectItem value="lingua_portuguesa">Português</SelectItem>
+                <SelectItem value="matematica">Matemática</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

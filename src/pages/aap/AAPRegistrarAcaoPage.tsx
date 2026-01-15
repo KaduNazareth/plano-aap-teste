@@ -497,38 +497,41 @@ export default function AAPRegistrarAcaoPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <Select
-          value={programaFilter}
-          onValueChange={(value) => setProgramaFilter(value as ProgramaType | 'todos')}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por programa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os Programas</SelectItem>
-            {aapProgramas.map(prog => (
-              <SelectItem key={prog} value={prog}>
-                {prog === 'escolas' ? 'Programa de Escolas' : prog === 'regionais' ? 'Regionais de Ensino' : 'Redes Municipais'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Filtros</span>
+        <div className="flex flex-wrap gap-3">
+          <Select
+            value={programaFilter}
+            onValueChange={(value) => setProgramaFilter(value as ProgramaType | 'todos')}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Programa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Programa</SelectItem>
+              {aapProgramas.map(prog => (
+                <SelectItem key={prog} value={prog}>
+                  {prog === 'escolas' ? 'Programa de Escolas' : prog === 'regionais' ? 'Regionais de Ensino' : 'Redes Municipais'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select
-          value={tipoFilter}
-          onValueChange={setTipoFilter}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os Tipos</SelectItem>
-            <SelectItem value="formacao">Formação</SelectItem>
-            <SelectItem value="visita">Visita</SelectItem>
-            <SelectItem value="acompanhamento_aula">Acompanhamento de Aula</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select
+            value={tipoFilter}
+            onValueChange={setTipoFilter}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Tipo</SelectItem>
+              <SelectItem value="formacao">Formação</SelectItem>
+              <SelectItem value="visita">Visita</SelectItem>
+              <SelectItem value="acompanhamento_aula">Acompanhamento de Aula</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Pending Programações */}

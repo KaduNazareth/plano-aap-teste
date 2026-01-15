@@ -749,53 +749,56 @@ export default function RelatoriosPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex flex-wrap gap-3">
-          <Select
-            value={programaFilter}
-            onValueChange={(value) => setProgramaFilter(value as ProgramaTypeDB | 'todos')}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filtrar por programa" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Programas</SelectItem>
-              {Object.entries(programaLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Filtros</span>
+          <div className="flex flex-wrap gap-3">
+            <Select
+              value={programaFilter}
+              onValueChange={(value) => setProgramaFilter(value as ProgramaTypeDB | 'todos')}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Programa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Programa</SelectItem>
+                {Object.entries(programaLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select
-            value={mesFilter === 'todos' ? 'todos' : mesFilter.toString()}
-            onValueChange={(value) => setMesFilter(value === 'todos' ? 'todos' : parseInt(value))}
-          >
-            <SelectTrigger className="w-[150px]">
-              <Calendar size={16} className="mr-2" />
-              <SelectValue placeholder="Filtrar por mês" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Meses</SelectItem>
-              {Object.entries(mesesLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select
+              value={mesFilter === 'todos' ? 'todos' : mesFilter.toString()}
+              onValueChange={(value) => setMesFilter(value === 'todos' ? 'todos' : parseInt(value))}
+            >
+              <SelectTrigger className="w-[150px]">
+                <Calendar size={16} className="mr-2" />
+                <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Mês</SelectItem>
+                {Object.entries(mesesLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select
-            value={componenteFilter}
-            onValueChange={setComponenteFilter}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por componente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os Componentes</SelectItem>
-              <SelectItem value="polivalente">Polivalente</SelectItem>
-              <SelectItem value="lingua_portuguesa">Português</SelectItem>
-              <SelectItem value="matematica">Matemática</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select
+              value={componenteFilter}
+              onValueChange={setComponenteFilter}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Componente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Componente</SelectItem>
+                <SelectItem value="polivalente">Polivalente</SelectItem>
+                <SelectItem value="lingua_portuguesa">Português</SelectItem>
+                <SelectItem value="matematica">Matemática</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         
         <FilterBar filters={filters} onFilterChange={setFilters} className="flex-1" />
