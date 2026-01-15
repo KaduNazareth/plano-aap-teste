@@ -300,7 +300,7 @@ export default function RegistrosPage() {
   const { data: profiles = [] } = useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, nome');
+      const { data, error } = await supabase.from('profiles').select('id, nome').order('nome');
       if (error) throw error;
       return data as Profile[];
     },
@@ -309,7 +309,7 @@ export default function RegistrosPage() {
   const { data: professores = [] } = useQuery({
     queryKey: ['professores_all'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('professores').select('id, nome, escola_id, segmento, componente, cargo').eq('ativo', true);
+      const { data, error } = await supabase.from('professores').select('id, nome, escola_id, segmento, componente, cargo').eq('ativo', true).order('nome');
       if (error) throw error;
       return data as Professor[];
     },

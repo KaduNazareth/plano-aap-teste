@@ -160,15 +160,15 @@ export default function AdminDashboard() {
         registrosRes,
         profilesRes
       ] = await Promise.all([
-        supabase.from('escolas').select('*').eq('ativa', true),
-        supabase.from('professores').select('*').eq('ativo', true),
+        supabase.from('escolas').select('*').eq('ativa', true).order('nome'),
+        supabase.from('professores').select('*').eq('ativo', true).order('nome'),
         supabase.from('user_roles').select('user_id').in('role', ['aap_inicial', 'aap_portugues', 'aap_matematica']),
         supabase.from('aap_programas').select('aap_user_id, programa'),
         supabase.from('avaliacoes_aula').select('clareza_objetivos, dominio_conteudo, estrategias_didaticas, engajamento_turma, gestao_tempo, escola_id'),
         supabase.from('programacoes').select('id, tipo, status, data, escola_id, aap_id, segmento, componente, programa'),
         supabase.from('presencas').select('id, registro_acao_id, professor_id, presente'),
         supabase.from('registros_acao').select('id, tipo, data, escola_id, aap_id, segmento, componente, programa'),
-        supabase.from('profiles').select('id, nome')
+        supabase.from('profiles').select('id, nome').order('nome')
       ]);
       
       // Fetch registros pendentes (agendados há mais de 2 dias e não realizados)
