@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Loader2, KeyRound, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { validatePassword } from '@/lib/passwordValidation';
+import { PasswordRequirements } from './PasswordRequirements';
 import {
   Dialog,
   DialogContent,
@@ -34,8 +36,9 @@ export function ForcePasswordChangeDialog({ open, onSuccess, userName }: ForcePa
       return;
     }
     
-    if (newPassword.length < 8) {
-      toast.error('A nova senha deve ter pelo menos 8 caracteres');
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      toast.error(validation.errors[0]);
       return;
     }
     
@@ -143,16 +146,9 @@ export function ForcePasswordChangeDialog({ open, onSuccess, userName }: ForcePa
             </div>
           </div>
           
-          <div className="bg-muted/50 p-3 rounded-lg text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Requisitos da senha:</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              <li className={newPassword.length >= 8 ? 'text-green-600' : ''}>
-                Mínimo de 8 caracteres
-              </li>
-            </ul>
-          </div>
+          <PasswordRequirements password={newPassword} />
           
-          <Button type="submit" disabled={isSubmitting} className="w-full">
+          <Button type="submit" disabled={isSubmitting || !validatePassword(newPassword).isValid} className="w-full">
             {isSubmitting ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (

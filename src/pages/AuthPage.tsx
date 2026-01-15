@@ -4,6 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Eye, EyeOff, LogIn, UserPlus, Shield, KeyRound, ArrowLeft, Mail } from 'lucide-react';
+import { validatePassword } from '@/lib/passwordValidation';
+import { PasswordRequirements } from '@/components/auth/PasswordRequirements';
+
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<'login' | 'setup' | 'forgot' | 'reset'>('login');
@@ -108,8 +111,9 @@ export default function AuthPage() {
       toast.error('As senhas não coincidem');
       return;
     }
-    if (password.length < 8) {
-      toast.error('A senha deve ter pelo menos 8 caracteres');
+    const validation = validatePassword(password);
+    if (!validation.isValid) {
+      toast.error(validation.errors[0]);
       return;
     }
     setIsSubmitting(true);
@@ -140,8 +144,9 @@ export default function AuthPage() {
       toast.error('Preencha todos os campos');
       return;
     }
-    if (password.length < 8) {
-      toast.error('A senha deve ter pelo menos 8 caracteres');
+    const validation = validatePassword(password);
+    if (!validation.isValid) {
+      toast.error(validation.errors[0]);
       return;
     }
     setIsSubmitting(true);
@@ -315,7 +320,7 @@ export default function AuthPage() {
                   Nova senha
                 </label>
                 <div className="relative">
-                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field pr-10" placeholder="Mínimo 6 caracteres" disabled={isSubmitting} minLength={6} required />
+                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field pr-10" placeholder="Digite sua nova senha" disabled={isSubmitting} required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -326,10 +331,11 @@ export default function AuthPage() {
                   Confirmar nova senha
                 </label>
                 <div className="relative">
-                  <input id="confirmPassword" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="input-field pr-10" placeholder="Repita a senha" disabled={isSubmitting} minLength={6} required />
+                  <input id="confirmPassword" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="input-field pr-10" placeholder="Repita a senha" disabled={isSubmitting} required />
                 </div>
               </div>
-              <button type="submit" disabled={isSubmitting} className="btn-primary w-full flex items-center justify-center gap-2">
+              <PasswordRequirements password={password} />
+              <button type="submit" disabled={isSubmitting || !validatePassword(password).isValid} className="btn-primary w-full flex items-center justify-center gap-2">
                 {isSubmitting ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <>
                     <KeyRound size={18} />
                     Alterar senha
@@ -359,13 +365,14 @@ export default function AuthPage() {
                   Senha
                 </label>
                 <div className="relative">
-                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field pr-10" placeholder="Mínimo 6 caracteres" disabled={isSubmitting} minLength={6} required />
+                  <input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="input-field pr-10" placeholder="Digite sua senha" disabled={isSubmitting} required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
-              <button type="submit" disabled={isSubmitting} className="btn-primary w-full flex items-center justify-center gap-2">
+              <PasswordRequirements password={password} />
+              <button type="submit" disabled={isSubmitting || !validatePassword(password).isValid} className="btn-primary w-full flex items-center justify-center gap-2">
                 {isSubmitting ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <>
                     <Shield size={18} />
                     Criar Administrador
