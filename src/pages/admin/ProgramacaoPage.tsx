@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2, Star, User } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2, Star, User, GraduationCap, Eye, ClipboardList } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels, cargoLabels } from '@/data/mockData';
 import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
@@ -1129,36 +1129,39 @@ export default function ProgramacaoPage() {
                         type="button"
                         onClick={() => setFormData({ ...formData, tipo: 'formacao' })}
                         className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1",
                           formData.tipo === 'formacao'
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border hover:border-muted-foreground"
                         )}
                       >
+                        <GraduationCap className="w-5 h-5" />
                         Formação
                       </button>
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, tipo: 'visita' })}
                         className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1",
                           formData.tipo === 'visita'
-                            ? "border-primary bg-primary/10 text-primary"
+                            ? "border-info bg-info/10 text-info"
                             : "border-border hover:border-muted-foreground"
                         )}
                       >
+                        <Eye className="w-5 h-5" />
                         Visita
                       </button>
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, tipo: 'acompanhamento_aula' })}
                         className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all",
+                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1",
                           formData.tipo === 'acompanhamento_aula'
                             ? "border-warning bg-warning/10 text-warning"
                             : "border-border hover:border-muted-foreground"
                         )}
                       >
+                        <ClipboardList className="w-5 h-5" />
                         Acompanhamento de Aula
                       </button>
                     </div>
