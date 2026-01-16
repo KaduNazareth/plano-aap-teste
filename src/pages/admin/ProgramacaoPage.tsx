@@ -174,7 +174,28 @@ export default function ProgramacaoPage() {
   const [observacoesAcompanhamento, setObservacoesAcompanhamento] = useState('');
   const [isLoadingProfessores, setIsLoadingProfessores] = useState(false);
   
-  const [formData, setFormData] = useState({
+  // Estados para presença de formação
+  const [isPresencaDialogOpen, setIsPresencaDialogOpen] = useState(false);
+  const [professoresPresenca, setProfessoresPresenca] = useState<ProfessorDB[]>([]);
+  const [presencaList, setPresencaList] = useState<{ professorId: string; presente: boolean }[]>([]);
+  const [observacoesFormacao, setObservacoesFormacao] = useState('');
+  const [avancosFormacao, setAvancosFormacao] = useState('');
+  const [dificuldadesFormacao, setDificuldadesFormacao] = useState('');
+  
+  const [formData, setFormData] = useState<{
+    tipo: TipoAcao;
+    titulo: string;
+    descricao: string;
+    data: string;
+    horarioInicio: string;
+    horarioFim: string;
+    escolaId: string;
+    aapId: string;
+    segmento: Segmento | 'todos';
+    componente: ComponenteCurricular;
+    anoSerie: string;
+    programa: ProgramaType[];
+  }>({
     tipo: 'formacao' as TipoAcao,
     titulo: '',
     descricao: '',
@@ -183,10 +204,10 @@ export default function ProgramacaoPage() {
     horarioFim: '',
     escolaId: '',
     aapId: '',
-    segmento: 'anos_iniciais' as Segmento,
-    componente: 'polivalente' as ComponenteCurricular,
+    segmento: 'anos_iniciais',
+    componente: 'polivalente',
     anoSerie: '',
-    programa: ['escolas'] as ProgramaType[],
+    programa: ['escolas'],
   });
 
   // Fetch programacoes from database
@@ -509,6 +530,52 @@ export default function ProgramacaoPage() {
       return;
     }
     
+    // Se for formação e a ação foi realizada, abrir formulário de presença
+    if (selectedProgramacao.tipo === 'formacao' && acaoRealizada) {
+      setIsLoadingProfessores(true);
+      try {
+        // Buscar professores da mesma escola e componente, filtrando por segmento e ano/série se não for "todos"
+        let query = supabase
+          .from('professores')
+          .select('id, nome, escola_id, segmento, componente, ano_serie, cargo')
+          .eq('escola_id', selectedProgramacao.escola_id)
+          .eq('componente', selectedProgramacao.componente)
+          .eq('ativo', true);
+        
+        if (selectedProgramacao.segmento !== 'todos') {
+          query = query.eq('segmento', selectedProgramacao.segmento);
+        }
+        
+        if (selectedProgramacao.ano_serie !== 'todos') {
+          query = query.eq('ano_serie', selectedProgramacao.ano_serie);
+        }
+        
+        const { data: profs, error } = await query.order('nome');
+        
+        if (error) throw error;
+        
+        setProfessoresPresenca(profs || []);
+        
+        // Inicializar lista de presenças (todos presentes por padrão)
+        setPresencaList((profs || []).map(p => ({
+          professorId: p.id,
+          presente: true,
+        })));
+        
+        setObservacoesFormacao('');
+        setAvancosFormacao('');
+        setDificuldadesFormacao('');
+        setIsManageDialogOpen(false);
+        setIsPresencaDialogOpen(true);
+      } catch (error) {
+        console.error('Error fetching professores:', error);
+        toast.error('Erro ao carregar professores');
+      } finally {
+        setIsLoadingProfessores(false);
+      }
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -734,6 +801,117 @@ export default function ProgramacaoPage() {
     } catch (error) {
       console.error('Error saving avaliacoes:', error);
       toast.error('Erro ao salvar avaliações');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handler para toggle de presença
+  const handleTogglePresenca = (professorId: string) => {
+    setPresencaList(prev =>
+      prev.map(item =>
+        item.professorId === professorId
+          ? { ...item, presente: !item.presente }
+          : item
+      )
+    );
+  };
+  
+  // Handler para marcar todos presentes ou ausentes
+  const handleMarcarTodosPresenca = (presente: boolean) => {
+    setPresencaList(prev => prev.map(item => ({ ...item, presente })));
+  };
+  
+  // Handler para salvar presenças de formação
+  const handleSavePresencas = async () => {
+    if (!selectedProgramacao || !user) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Atualizar status da programação
+      const { error: updateProgError } = await supabase
+        .from('programacoes')
+        .update({ status: 'realizada' })
+        .eq('id', selectedProgramacao.id);
+      
+      if (updateProgError) throw updateProgError;
+      
+      // Verificar se existe registro_acao
+      const { data: existingRegistro } = await supabase
+        .from('registros_acao')
+        .select('id')
+        .eq('programacao_id', selectedProgramacao.id)
+        .maybeSingle();
+      
+      let registroId: string;
+      
+      if (existingRegistro) {
+        // Atualizar registro existente
+        const { error: updateRegistroError } = await supabase
+          .from('registros_acao')
+          .update({
+            status: 'realizada',
+            observacoes: observacoesFormacao || null,
+            avancos: avancosFormacao || null,
+            dificuldades: dificuldadesFormacao || null,
+          })
+          .eq('id', existingRegistro.id);
+        
+        if (updateRegistroError) throw updateRegistroError;
+        registroId = existingRegistro.id;
+      } else {
+        // Criar novo registro
+        const { data: newRegistro, error: insertRegistroError } = await supabase
+          .from('registros_acao')
+          .insert({
+            aap_id: user.id,
+            ano_serie: selectedProgramacao.ano_serie,
+            componente: selectedProgramacao.componente,
+            data: selectedProgramacao.data,
+            escola_id: selectedProgramacao.escola_id,
+            programa: selectedProgramacao.programa,
+            programacao_id: selectedProgramacao.id,
+            segmento: selectedProgramacao.segmento,
+            tipo: selectedProgramacao.tipo,
+            status: 'realizada',
+            observacoes: observacoesFormacao || null,
+            avancos: avancosFormacao || null,
+            dificuldades: dificuldadesFormacao || null,
+          })
+          .select('id')
+          .single();
+        
+        if (insertRegistroError) throw insertRegistroError;
+        registroId = newRegistro.id;
+      }
+      
+      // Inserir presenças
+      const presencasToInsert = presencaList.map(p => ({
+        registro_acao_id: registroId,
+        professor_id: p.professorId,
+        presente: p.presente,
+      }));
+      
+      const { error: presencasError } = await supabase
+        .from('presencas')
+        .insert(presencasToInsert);
+      
+      if (presencasError) throw presencasError;
+      
+      const presentes = presencaList.filter(p => p.presente).length;
+      toast.success('Presenças registradas com sucesso!', {
+        description: `${presentes} de ${presencaList.length} professor(es) presente(s)`
+      });
+      
+      setIsPresencaDialogOpen(false);
+      setSelectedProgramacao(null);
+      setPresencaList([]);
+      setProfessoresPresenca([]);
+      fetchProgramacoes();
+    } catch (error) {
+      console.error('Error saving presencas:', error);
+      toast.error('Erro ao salvar presenças');
     } finally {
       setIsSubmitting(false);
     }
@@ -1119,12 +1297,13 @@ export default function ProgramacaoPage() {
                           onChange={(e) => setFormData({ 
                             ...formData, 
                             segmento: e.target.value as Segmento,
-                            anoSerie: ''
+                            anoSerie: formData.tipo === 'formacao' ? formData.anoSerie : ''
                           })}
                           className="input-field"
-                          required
+                          required={formData.tipo !== 'formacao'}
                           disabled={isAAP && getAAPSegmentoComponente(profile?.role).segmentos.length === 1}
                         >
+                          {formData.tipo === 'formacao' && <option value="todos">Todos os Segmentos</option>}
                           {(() => {
                             const allowedSegmentos = isAAP 
                               ? getAAPSegmentoComponente(profile?.role).segmentos 
@@ -1162,12 +1341,18 @@ export default function ProgramacaoPage() {
                           value={formData.anoSerie}
                           onChange={(e) => setFormData({ ...formData, anoSerie: e.target.value })}
                           className="input-field"
-                          required
+                          required={formData.tipo !== 'formacao'}
                         >
                           <option value="">Selecione</option>
-                          {anoSerieOptions[formData.segmento]?.map(ano => (
+                          {formData.tipo === 'formacao' && <option value="todos">Todos os Anos/Séries</option>}
+                          {formData.segmento !== 'todos' && anoSerieOptions[formData.segmento]?.map(ano => (
                             <option key={ano} value={ano}>{ano}</option>
                           ))}
+                          {formData.segmento === 'todos' && formData.tipo === 'formacao' && (
+                            Object.values(anoSerieOptions).flat().filter((v, i, arr) => arr.indexOf(v) === i).map(ano => (
+                              <option key={ano} value={ano}>{ano}</option>
+                            ))
+                          )}
                         </select>
                       </div>
                     </>
@@ -1856,6 +2041,167 @@ export default function ProgramacaoPage() {
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Salvar Avaliações'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Presença de Formação Dialog */}
+      <Dialog open={isPresencaDialogOpen} onOpenChange={setIsPresencaDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="text-success" size={20} />
+              Registro de Presença - Formação
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProgramacao && (
+                <span>
+                  {selectedProgramacao.titulo} - {format(parseISO(selectedProgramacao.data), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingProfessores ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+          ) : professoresPresenca.length === 0 ? (
+            <div className="text-center py-12">
+              <User className="mx-auto text-muted-foreground mb-4" size={48} />
+              <p className="text-muted-foreground">
+                Nenhum professor encontrado para esta escola com os filtros selecionados.
+              </p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => {
+                  setIsPresencaDialogOpen(false);
+                  setIsManageDialogOpen(true);
+                }}
+              >
+                Voltar
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-4">
+              {/* Campos de observação */}
+              <div className="grid gap-4">
+                <div>
+                  <label className="form-label">Observações Gerais</label>
+                  <Textarea
+                    value={observacoesFormacao}
+                    onChange={(e) => setObservacoesFormacao(e.target.value)}
+                    placeholder="Observações sobre a formação..."
+                    rows={2}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Avanços</label>
+                    <Textarea
+                      value={avancosFormacao}
+                      onChange={(e) => setAvancosFormacao(e.target.value)}
+                      placeholder="Avanços observados..."
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Dificuldades</label>
+                    <Textarea
+                      value={dificuldadesFormacao}
+                      onChange={(e) => setDificuldadesFormacao(e.target.value)}
+                      placeholder="Dificuldades observadas..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Ações em massa */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                <span className="text-sm font-medium">
+                  Professores: {presencaList.filter(p => p.presente).length} de {presencaList.length} presentes
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMarcarTodosPresenca(true)}
+                  >
+                    <CheckCircle2 size={14} className="mr-1 text-success" />
+                    Todos Presentes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMarcarTodosPresenca(false)}
+                  >
+                    <XCircle size={14} className="mr-1 text-destructive" />
+                    Todos Ausentes
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Lista de professores */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {professoresPresenca.map(prof => {
+                  const presencaItem = presencaList.find(p => p.professorId === prof.id);
+                  const isPresente = presencaItem?.presente ?? false;
+                  
+                  return (
+                    <div 
+                      key={prof.id} 
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer",
+                        isPresente 
+                          ? "border-success/50 bg-success/5" 
+                          : "border-border hover:border-muted-foreground"
+                      )}
+                      onClick={() => handleTogglePresenca(prof.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox 
+                          checked={isPresente}
+                          onCheckedChange={() => handleTogglePresenca(prof.id)}
+                        />
+                        <div>
+                          <p className="font-medium">{prof.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {segmentoLabels[prof.segmento as Segmento] || prof.segmento} • {prof.ano_serie}
+                          </p>
+                        </div>
+                      </div>
+                      {isPresente ? (
+                        <CheckCircle2 size={18} className="text-success" />
+                      ) : (
+                        <XCircle size={18} className="text-muted-foreground" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsPresencaDialogOpen(false);
+                    setIsManageDialogOpen(true);
+                  }}
+                >
+                  Voltar
+                </Button>
+                <Button 
+                  onClick={handleSavePresencas} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Salvar Presenças'}
                 </Button>
               </DialogFooter>
             </div>
