@@ -181,23 +181,28 @@ export default function UsuariosPage() {
   };
 
   const callManageUsersFunction = async (action: string, params: Record<string, unknown>): Promise<{ success?: boolean; error?: string; user?: unknown }> => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ action, ...params }),
-    });
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action, ...params }),
+      });
 
-    const result = await response.json();
-    if (!response.ok) {
-      return { error: result.error || 'Erro na operação' };
+      const result = await response.json();
+      if (!response.ok) {
+        return { error: result.error || 'Erro na operação' };
+      }
+      return result;
+    } catch (error) {
+      console.error('Network error:', error);
+      return { error: 'Erro de conexão. Tente novamente.' };
     }
-    return result;
   };
 
   const handleCreateUser = async () => {
