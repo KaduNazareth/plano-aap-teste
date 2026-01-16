@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -127,6 +128,7 @@ const pontuacaoLegenda = [
 
 export default function ProgramacaoPage() {
   const { user, isAdminOrGestor, isAdmin, isGestor, isAAP, profile } = useAuth();
+  const queryClient = useQueryClient();
   const [programacoes, setProgramacoes] = useState<ProgramacaoDB[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -797,6 +799,12 @@ export default function ProgramacaoPage() {
       setSelectedProgramacao(null);
       setAvaliacaoList([]);
       setProfessoresAvaliacao([]);
+      
+      // Invalidar queries para atualizar dados em outras páginas
+      queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+      queryClient.invalidateQueries({ queryKey: ['avaliacoes_aula'] });
+      queryClient.invalidateQueries({ queryKey: ['programacoes'] });
+      
       fetchProgramacoes();
     } catch (error) {
       console.error('Error saving avaliacoes:', error);
@@ -908,6 +916,12 @@ export default function ProgramacaoPage() {
       setSelectedProgramacao(null);
       setPresencaList([]);
       setProfessoresPresenca([]);
+      
+      // Invalidar queries para atualizar dados em outras páginas
+      queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+      queryClient.invalidateQueries({ queryKey: ['presencas'] });
+      queryClient.invalidateQueries({ queryKey: ['programacoes'] });
+      
       fetchProgramacoes();
     } catch (error) {
       console.error('Error saving presencas:', error);
