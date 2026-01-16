@@ -205,18 +205,21 @@ const handler = async (req: Request): Promise<Response> => {
         `)
         .join('');
 
+      const logoUrl = 'https://acompanhamento-aaps.lovable.app/pe-logo-branco.png';
+      
       const emailHtml = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
-          <title>Ações Pendentes - Parceiros Educacionais</title>
+          <title>Ações Pendentes - Parceiros da Educação</title>
         </head>
         <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background-color: #1e3a5f; padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 24px;">Parceiros Educacionais</h1>
-              <p style="color: #93c5fd; margin: 10px 0 0 0;">Sistema de Gestão</p>
+              <img src="${logoUrl}" alt="Parceiros da Educação" width="180" height="auto" style="display: block; margin: 0 auto 16px auto;" />
+              <h1 style="color: white; margin: 0; font-size: 24px;">Parceiros da Educação</h1>
+              <p style="color: #93c5fd; margin: 10px 0 0 0;">Sistema de Acompanhamento de AAPs</p>
             </div>
             
             <div style="background-color: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -279,7 +282,7 @@ const handler = async (req: Request): Promise<Response> => {
           body: JSON.stringify({
             from: "Acompanhamento AAPs <noreply@mensagens.acompanhamento-aaps.org>",
             to: [notification.aap_email],
-            subject: `⚠️ Você tem ${notification.pendentes.length} ${notification.pendentes.length === 1 ? 'ação pendente' : 'ações pendentes'} - Parceiros Educacionais`,
+            subject: `⚠️ Você tem ${notification.pendentes.length} ${notification.pendentes.length === 1 ? 'ação pendente' : 'ações pendentes'} - Parceiros da Educação`,
             html: emailHtml,
           }),
         });
