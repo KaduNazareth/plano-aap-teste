@@ -182,8 +182,9 @@ Deno.serve(async (req) => {
             .maybeSingle();
           
           if (existingProfile) {
-            return new Response(JSON.stringify({ error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-              status: 400,
+            return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
+              // Returning 200 avoids the app-level "Edge function returned 400" crash screen for validation errors
+              status: 200,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
@@ -194,8 +195,9 @@ Deno.serve(async (req) => {
             // Check if error is due to email already in use
             const errorMessage = updateAuthError.message.toLowerCase();
             if (errorMessage.includes('already') || errorMessage.includes('duplicate') || errorMessage.includes('exists') || errorMessage.includes('unique')) {
-              return new Response(JSON.stringify({ error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-                status: 400,
+              return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
+                // Returning 200 avoids the app-level "Edge function returned 400" crash screen for validation errors
+                status: 200,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             }
@@ -222,8 +224,9 @@ Deno.serve(async (req) => {
             // Check if profile error is due to duplicate email
             const errorMessage = profileError.message?.toLowerCase() || '';
             if (errorMessage.includes('duplicate') || errorMessage.includes('unique') || errorMessage.includes('already')) {
-              return new Response(JSON.stringify({ error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-                status: 400,
+              return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
+                // Returning 200 avoids the app-level "Edge function returned 400" crash screen for validation errors
+                status: 200,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             }
