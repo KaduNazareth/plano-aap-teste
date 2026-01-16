@@ -284,13 +284,14 @@ export default function RegistrosPage() {
     },
   });
 
-  const { data: avaliacoes = [] } = useQuery({
+  const { data: avaliacoes = [], refetch: refetchAvaliacoes } = useQuery({
     queryKey: ['avaliacoes_aula'],
     queryFn: async () => {
       const { data, error } = await supabase.from('avaliacoes_aula').select('*');
       if (error) throw error;
       return data as AvaliacaoAulaDB[];
     },
+    staleTime: 0, // Sempre considera os dados como stale para garantir atualização
   });
 
   const { data: escolas = [] } = useQuery({
@@ -402,12 +403,25 @@ export default function RegistrosPage() {
     return registro.aap_id === user?.id;
   };
 
-  // Get available professors for a registro - filtrar por escola, segmento e ano_serie
+  // Get available professors for a registro - filtrar por escola, segmento, ano_serie e componente
   const getAvailableProfessors = (registro: RegistroAcaoDB) => {
+    // Para formação, verificar se segmento e ano_serie são "todos"
+    if (registro.tipo === 'formacao') {
+      return professores.filter(p => {
+        if (p.escola_id !== registro.escola_id) return false;
+        if (p.componente !== registro.componente) return false;
+        if (registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
+        if (registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
+        return true;
+      });
+    }
+    
+    // Para acompanhamento_aula e visita, filtrar por todos os critérios
     return professores.filter(p => 
       p.escola_id === registro.escola_id &&
       p.segmento === registro.segmento &&
-      p.ano_serie === registro.ano_serie
+      p.ano_serie === registro.ano_serie &&
+      p.componente === registro.componente
     );
   };
 
