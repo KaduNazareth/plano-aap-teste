@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Eye, Calendar, MapPin, User, MessageSquare, TrendingUp, AlertCircle, Loader2, Edit, Star, History, Download, XCircle, CalendarClock, Check, X, Users, ClipboardCheck, ChevronRight, Trash2, GraduationCap, ClipboardList, Clock } from 'lucide-react';
+import { Search, Eye, Calendar, MapPin, User, MessageSquare, TrendingUp, AlertCircle, Loader2, Edit, Star, History, Download, XCircle, CalendarClock, Check, X, Users, ClipboardCheck, ChevronRight, Trash2, GraduationCap, ClipboardList, Clock, CheckCircle2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,6 +95,7 @@ interface Professor {
   segmento: string;
   componente: string;
   cargo: string;
+  ano_serie: string; // ano/série do professor
 }
 
 interface ProgramacaoDB {
@@ -212,6 +213,10 @@ export default function RegistrosPage() {
   const [registroToDelete, setRegistroToDelete] = useState<RegistroAcaoDB | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Estado para confirmação de realização de ação (acompanhamento)
+  const [showConfirmRealizacao, setShowConfirmRealizacao] = useState(false);
+  const [acaoRealizada, setAcaoRealizada] = useState<boolean | null>(null);
 
   // Fetch gestor programs if user is gestor
   const { data: gestorProgramas = [] } = useQuery({
@@ -309,7 +314,7 @@ export default function RegistrosPage() {
   const { data: professores = [] } = useQuery({
     queryKey: ['professores_all'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('professores').select('id, nome, escola_id, segmento, componente, cargo').eq('ativo', true).order('nome');
+      const { data, error } = await supabase.from('professores').select('id, nome, escola_id, segmento, componente, cargo, ano_serie').eq('ativo', true).order('nome');
       if (error) throw error;
       return data as Professor[];
     },
@@ -397,11 +402,12 @@ export default function RegistrosPage() {
     return registro.aap_id === user?.id;
   };
 
-  // Get available professors for a registro
+  // Get available professors for a registro - filtrar por escola, segmento e ano_serie
   const getAvailableProfessors = (registro: RegistroAcaoDB) => {
     return professores.filter(p => 
       p.escola_id === registro.escola_id &&
-      p.segmento === registro.segmento
+      p.segmento === registro.segmento &&
+      p.ano_serie === registro.ano_serie
     );
   };
 
@@ -425,8 +431,18 @@ export default function RegistrosPage() {
     const profs = getAvailableProfessors(registro);
     
     if (registro.tipo === 'acompanhamento_aula') {
-      // Load existing avaliacoes
+      // Verificar se já existem avaliações
       const existingAvaliacoes = getAvaliacoesForRegistro(registro.id);
+      
+      // Se status for agendada/reagendada e não há avaliações, perguntar se houve a visita
+      const isPendingAction = registro.status === 'agendada' || registro.status === 'reagendada';
+      if (isPendingAction && existingAvaliacoes.length === 0) {
+        setShowConfirmRealizacao(true);
+        setAcaoRealizada(null);
+        return;
+      }
+      
+      // Load existing avaliacoes
       const avaliacaoMap = new Map(existingAvaliacoes.map(a => [a.professor_id, a]));
       
       setAvaliacaoList(profs.map(p => {
@@ -456,6 +472,52 @@ export default function RegistrosPage() {
     
     setSelectedProfessorAvaliacao(null);
     setIsManaging(true);
+  };
+
+  // Handler para confirmar se ação foi realizada
+  const handleConfirmRealizacao = async (realizada: boolean) => {
+    if (!selectedRegistro || !user) return;
+    
+    if (realizada) {
+      // Atualizar status do registro para "realizada" e abrir formulário de avaliação
+      try {
+        const { error } = await supabase
+          .from('registros_acao')
+          .update({ status: 'realizada' })
+          .eq('id', selectedRegistro.id);
+        
+        if (error) throw error;
+        
+        // Atualizar registro local
+        const updatedRegistro = { ...selectedRegistro, status: 'realizada' };
+        setSelectedRegistro(updatedRegistro);
+        
+        // Carregar professores para avaliação
+        const profs = getAvailableProfessors(selectedRegistro);
+        setAvaliacaoList(profs.map(p => ({
+          professorId: p.id,
+          clareza_objetivos: 3 as NotaAvaliacao,
+          dominio_conteudo: 3 as NotaAvaliacao,
+          estrategias_didaticas: 3 as NotaAvaliacao,
+          engajamento_turma: 3 as NotaAvaliacao,
+          gestao_tempo: 3 as NotaAvaliacao,
+          observacoes: '',
+        })));
+        
+        queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+        setShowConfirmRealizacao(false);
+        setIsManaging(true);
+        toast.success('Ação marcada como realizada!');
+      } catch (error) {
+        console.error('Error updating registro:', error);
+        toast.error('Erro ao atualizar registro');
+      }
+    } else {
+      // Fechar diálogo sem fazer nada
+      setShowConfirmRealizacao(false);
+      setSelectedRegistro(null);
+      toast.info('Ação mantida como pendente');
+    }
   };
 
   const handleTogglePresenca = (professorId: string) => {
@@ -834,10 +896,20 @@ export default function RegistrosPage() {
       render: (registro: RegistroAcaoDB) => {
         if (registro.tipo === 'acompanhamento_aula') {
           const avaliacoesRegistro = getAvaliacoesForRegistro(registro.id);
+          const hasAvaliacoes = avaliacoesRegistro.length > 0;
           return (
             <span className="text-[10px] flex items-center gap-1">
-              <Star size={14} className="text-warning" />
-              {avaliacoesRegistro.length} avaliação(ões)
+              {hasAvaliacoes ? (
+                <>
+                  <CheckCircle2 size={14} className="text-success fill-success/20" />
+                  <span className="text-success font-medium">{avaliacoesRegistro.length} avaliação(ões)</span>
+                </>
+              ) : (
+                <>
+                  <Star size={14} className="text-muted-foreground" />
+                  <span className="text-muted-foreground">Pendente</span>
+                </>
+              )}
             </span>
           );
         }
@@ -1767,6 +1839,48 @@ export default function RegistrosPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? <Loader2 className="animate-spin" size={16} /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Realização Dialog */}
+      <AlertDialog open={showConfirmRealizacao} onOpenChange={(open) => { if (!open) { setShowConfirmRealizacao(false); setSelectedRegistro(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ClipboardCheck size={20} className="text-warning" />
+              Confirmar Realização
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedRegistro && (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <p className="font-medium text-foreground">Acompanhamento de Aula</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(parseISO(selectedRegistro.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      {' • '}
+                      {getEscolaNome(selectedRegistro.escola_id)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {segmentoLabels[selectedRegistro.segmento as Segmento]} - {selectedRegistro.ano_serie}
+                    </p>
+                  </div>
+                  <p className="text-center font-medium text-foreground">
+                    A visita de acompanhamento foi realizada?
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => handleConfirmRealizacao(false)} className="flex items-center gap-2">
+              <X size={16} />
+              Não foi realizada
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleConfirmRealizacao(true)} className="flex items-center gap-2 bg-success text-success-foreground hover:bg-success/90">
+              <Check size={16} />
+              Sim, foi realizada
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
