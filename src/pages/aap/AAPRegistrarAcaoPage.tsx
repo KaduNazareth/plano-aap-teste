@@ -214,12 +214,13 @@ export default function AAPRegistrarAcaoPage() {
     });
   }, [programacoes, programaFilter, tipoFilter]);
 
-  // Get professors for selected escola and segmento (including coordenadores)
+  // Get professors for selected escola, segmento e ano_serie
   const availableProfessors = useMemo(() => {
     if (!selectedProgramacao) return [];
     return professores.filter(p => 
       p.escola_id === selectedProgramacao.escola_id &&
-      p.segmento === selectedProgramacao.segmento
+      p.segmento === selectedProgramacao.segmento &&
+      p.ano_serie === selectedProgramacao.ano_serie
     );
   }, [selectedProgramacao, professores]);
 
@@ -227,10 +228,11 @@ export default function AAPRegistrarAcaoPage() {
 
   const handleSelectProgramacao = (prog: ProgramacaoDB) => {
     setSelectedProgramacao(prog);
-    // Get professors for this escola and segmento
+    // Get professors for this escola, segmento e ano_serie
     const profs = professores.filter(p => 
       p.escola_id === prog.escola_id &&
-      p.segmento === prog.segmento
+      p.segmento === prog.segmento &&
+      p.ano_serie === prog.ano_serie
     );
     
     if (prog.tipo === 'acompanhamento_aula') {
