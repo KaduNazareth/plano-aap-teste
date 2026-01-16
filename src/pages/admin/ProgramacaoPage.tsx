@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2 } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2, Star, User } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels } from '@/data/mockData';
-import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular } from '@/types';
+import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels, cargoLabels } from '@/data/mockData';
+import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -89,6 +89,42 @@ interface ProgramacaoDB {
   created_at: string;
 }
 
+interface ProfessorDB {
+  id: string;
+  nome: string;
+  escola_id: string;
+  segmento: string;
+  componente: string;
+  ano_serie: string;
+  cargo: string;
+}
+
+interface AvaliacaoAulaItem {
+  professorId: string;
+  clareza_objetivos: NotaAvaliacao;
+  dominio_conteudo: NotaAvaliacao;
+  estrategias_didaticas: NotaAvaliacao;
+  engajamento_turma: NotaAvaliacao;
+  gestao_tempo: NotaAvaliacao;
+  observacoes: string;
+}
+
+const dimensoesAvaliacao = [
+  { key: 'clareza_objetivos', label: 'Intencionalidade pedagógica', description: 'Objetivo de aprendizagem claro e comunicado aos estudantes' },
+  { key: 'dominio_conteudo', label: 'Estratégias didáticas', description: 'Estratégias adequadas ao objetivo da aula' },
+  { key: 'estrategias_didaticas', label: 'Mediação docente', description: 'Intervenções que apoiam a compreensão' },
+  { key: 'engajamento_turma', label: 'Engajamento dos estudantes', description: 'Participação ativa da maioria da turma' },
+  { key: 'gestao_tempo', label: 'Avaliação durante a aula', description: 'Verificação de compreensão dos estudantes' },
+] as const;
+
+const pontuacaoLegenda = [
+  { nota: 1, titulo: 'Não observado' },
+  { nota: 2, titulo: 'Inicial' },
+  { nota: 3, titulo: 'Parcial' },
+  { nota: 4, titulo: 'Adequado' },
+  { nota: 5, titulo: 'Consistente' },
+];
+
 export default function ProgramacaoPage() {
   const { user, isAdminOrGestor, isAdmin, isGestor, isAAP, profile } = useAuth();
   const [programacoes, setProgramacoes] = useState<ProgramacaoDB[]>([]);
@@ -128,6 +164,15 @@ export default function ProgramacaoPage() {
   const [programacaoToDelete, setProgramacaoToDelete] = useState<ProgramacaoDB | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Estados para avaliação de acompanhamento de aula
+  const [isAvaliacaoDialogOpen, setIsAvaliacaoDialogOpen] = useState(false);
+  const [professoresAvaliacao, setProfessoresAvaliacao] = useState<ProfessorDB[]>([]);
+  const [avaliacaoList, setAvaliacaoList] = useState<AvaliacaoAulaItem[]>([]);
+  const [selectedProfessorAvaliacao, setSelectedProfessorAvaliacao] = useState<string | null>(null);
+  const [turma, setTurma] = useState('');
+  const [observacoesAcompanhamento, setObservacoesAcompanhamento] = useState('');
+  const [isLoadingProfessores, setIsLoadingProfessores] = useState(false);
   
   const [formData, setFormData] = useState({
     tipo: 'formacao' as TipoAcao,
@@ -420,6 +465,49 @@ export default function ProgramacaoPage() {
       return;
     }
     
+    // Se for acompanhamento_aula e a ação foi realizada, abrir formulário de avaliação
+    if (selectedProgramacao.tipo === 'acompanhamento_aula' && acaoRealizada) {
+      setIsLoadingProfessores(true);
+      try {
+        // Buscar professores da mesma escola, segmento e ano/série
+        const { data: profs, error } = await supabase
+          .from('professores')
+          .select('id, nome, escola_id, segmento, componente, ano_serie, cargo')
+          .eq('escola_id', selectedProgramacao.escola_id)
+          .eq('segmento', selectedProgramacao.segmento)
+          .eq('ano_serie', selectedProgramacao.ano_serie)
+          .eq('ativo', true)
+          .order('nome');
+        
+        if (error) throw error;
+        
+        setProfessoresAvaliacao(profs || []);
+        
+        // Inicializar lista de avaliações
+        setAvaliacaoList((profs || []).map(p => ({
+          professorId: p.id,
+          clareza_objetivos: 3,
+          dominio_conteudo: 3,
+          estrategias_didaticas: 3,
+          engajamento_turma: 3,
+          gestao_tempo: 3,
+          observacoes: '',
+        })));
+        
+        setSelectedProfessorAvaliacao(null);
+        setTurma('');
+        setObservacoesAcompanhamento('');
+        setIsManageDialogOpen(false);
+        setIsAvaliacaoDialogOpen(true);
+      } catch (error) {
+        console.error('Error fetching professores:', error);
+        toast.error('Erro ao carregar professores');
+      } finally {
+        setIsLoadingProfessores(false);
+      }
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -535,6 +623,116 @@ export default function ProgramacaoPage() {
     } catch (error) {
       console.error('Error updating programacao:', error);
       toast.error('Erro ao atualizar programação');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handler para atualizar avaliação de um professor
+  const handleUpdateAvaliacao = (professorId: string, dimensao: keyof AvaliacaoAulaItem, valor: NotaAvaliacao | string) => {
+    setAvaliacaoList(prev =>
+      prev.map(item =>
+        item.professorId === professorId
+          ? { ...item, [dimensao]: valor }
+          : item
+      )
+    );
+  };
+  
+  // Handler para salvar avaliações de acompanhamento de aula
+  const handleSaveAvaliacoes = async () => {
+    if (!selectedProgramacao || !user) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Atualizar status da programação
+      const { error: updateProgError } = await supabase
+        .from('programacoes')
+        .update({ status: 'realizada' })
+        .eq('id', selectedProgramacao.id);
+      
+      if (updateProgError) throw updateProgError;
+      
+      // Verificar se existe registro_acao
+      const { data: existingRegistro } = await supabase
+        .from('registros_acao')
+        .select('id')
+        .eq('programacao_id', selectedProgramacao.id)
+        .maybeSingle();
+      
+      let registroId: string;
+      
+      if (existingRegistro) {
+        // Atualizar registro existente
+        const { error: updateRegistroError } = await supabase
+          .from('registros_acao')
+          .update({
+            status: 'realizada',
+            turma: turma || null,
+            observacoes: observacoesAcompanhamento || null,
+          })
+          .eq('id', existingRegistro.id);
+        
+        if (updateRegistroError) throw updateRegistroError;
+        registroId = existingRegistro.id;
+      } else {
+        // Criar novo registro
+        const { data: newRegistro, error: insertRegistroError } = await supabase
+          .from('registros_acao')
+          .insert({
+            aap_id: user.id,
+            ano_serie: selectedProgramacao.ano_serie,
+            componente: selectedProgramacao.componente,
+            data: selectedProgramacao.data,
+            escola_id: selectedProgramacao.escola_id,
+            programa: selectedProgramacao.programa,
+            programacao_id: selectedProgramacao.id,
+            segmento: selectedProgramacao.segmento,
+            tipo: selectedProgramacao.tipo,
+            status: 'realizada',
+            turma: turma || null,
+            observacoes: observacoesAcompanhamento || null,
+          })
+          .select('id')
+          .single();
+        
+        if (insertRegistroError) throw insertRegistroError;
+        registroId = newRegistro.id;
+      }
+      
+      // Inserir avaliações
+      const avaliacoesToInsert = avaliacaoList.map(av => ({
+        registro_acao_id: registroId,
+        professor_id: av.professorId,
+        escola_id: selectedProgramacao.escola_id,
+        aap_id: user.id,
+        clareza_objetivos: av.clareza_objetivos,
+        dominio_conteudo: av.dominio_conteudo,
+        estrategias_didaticas: av.estrategias_didaticas,
+        engajamento_turma: av.engajamento_turma,
+        gestao_tempo: av.gestao_tempo,
+        observacoes: av.observacoes || null,
+      }));
+      
+      const { error: avaliacoesError } = await supabase
+        .from('avaliacoes_aula')
+        .insert(avaliacoesToInsert);
+      
+      if (avaliacoesError) throw avaliacoesError;
+      
+      toast.success('Avaliação de acompanhamento salva com sucesso!', {
+        description: `${avaliacaoList.length} professor(es) avaliado(s)`
+      });
+      
+      setIsAvaliacaoDialogOpen(false);
+      setSelectedProgramacao(null);
+      setAvaliacaoList([]);
+      setProfessoresAvaliacao([]);
+      fetchProgramacoes();
+    } catch (error) {
+      console.error('Error saving avaliacoes:', error);
+      toast.error('Erro ao salvar avaliações');
     } finally {
       setIsSubmitting(false);
     }
@@ -1461,6 +1659,208 @@ export default function ProgramacaoPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Avaliação de Acompanhamento de Aula Dialog */}
+      <Dialog open={isAvaliacaoDialogOpen} onOpenChange={setIsAvaliacaoDialogOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="text-warning" size={20} />
+              Avaliação de Acompanhamento de Aula
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProgramacao && (
+                <span>
+                  {selectedProgramacao.titulo} - {format(parseISO(selectedProgramacao.data), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingProfessores ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+          ) : professoresAvaliacao.length === 0 ? (
+            <div className="text-center py-12">
+              <User className="mx-auto text-muted-foreground mb-4" size={48} />
+              <p className="text-muted-foreground">
+                Nenhum professor encontrado para esta escola, segmento e ano/série.
+              </p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => {
+                  setIsAvaliacaoDialogOpen(false);
+                  setIsManageDialogOpen(true);
+                }}
+              >
+                Voltar
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6 mt-4">
+              {/* Campos gerais */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Turma</label>
+                  <input
+                    type="text"
+                    value={turma}
+                    onChange={(e) => setTurma(e.target.value)}
+                    className="input-field"
+                    placeholder="Ex: 5º A"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Observações Gerais</label>
+                  <input
+                    type="text"
+                    value={observacoesAcompanhamento}
+                    onChange={(e) => setObservacoesAcompanhamento(e.target.value)}
+                    className="input-field"
+                    placeholder="Observações sobre a visita..."
+                  />
+                </div>
+              </div>
+              
+              {/* Legenda de pontuação */}
+              <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                <p className="text-xs font-medium mb-2">Legenda de Pontuação:</p>
+                <div className="flex flex-wrap gap-3">
+                  {pontuacaoLegenda.map(p => (
+                    <span key={p.nota} className="text-xs">
+                      <strong>{p.nota}</strong> - {p.titulo}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Lista de professores para avaliar */}
+              <div className="space-y-4">
+                <h4 className="font-medium flex items-center gap-2">
+                  <User size={16} />
+                  Professores para Avaliar ({professoresAvaliacao.length})
+                </h4>
+                
+                <div className="grid gap-3">
+                  {professoresAvaliacao.map(prof => {
+                    const avaliacao = avaliacaoList.find(a => a.professorId === prof.id);
+                    const isExpanded = selectedProfessorAvaliacao === prof.id;
+                    
+                    return (
+                      <div 
+                        key={prof.id} 
+                        className={cn(
+                          "border rounded-xl transition-all",
+                          isExpanded ? "border-primary bg-primary/5" : "border-border"
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProfessorAvaliacao(isExpanded ? null : prof.id)}
+                          className="w-full p-4 flex items-center justify-between text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User size={18} className="text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{prof.nome}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {cargoLabels[prof.cargo as keyof typeof cargoLabels] || prof.cargo} • {segmentoLabels[prof.segmento as Segmento] || prof.segmento}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {avaliacao && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Star size={14} className="text-warning fill-warning" />
+                                <span>
+                                  {((avaliacao.clareza_objetivos + avaliacao.dominio_conteudo + avaliacao.estrategias_didaticas + avaliacao.engajamento_turma + avaliacao.gestao_tempo) / 5).toFixed(1)}
+                                </span>
+                              </div>
+                            )}
+                            <ChevronRight 
+                              size={18} 
+                              className={cn(
+                                "text-muted-foreground transition-transform",
+                                isExpanded && "rotate-90"
+                              )} 
+                            />
+                          </div>
+                        </button>
+                        
+                        {isExpanded && avaliacao && (
+                          <div className="px-4 pb-4 space-y-4">
+                            <div className="grid gap-3">
+                              {dimensoesAvaliacao.map(dim => (
+                                <div key={dim.key} className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium">{dim.label}</p>
+                                      <p className="text-xs text-muted-foreground">{dim.description}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map(nota => (
+                                      <button
+                                        key={nota}
+                                        type="button"
+                                        onClick={() => handleUpdateAvaliacao(prof.id, dim.key as keyof AvaliacaoAulaItem, nota as NotaAvaliacao)}
+                                        className={cn(
+                                          "flex-1 py-2 rounded-lg border-2 font-medium transition-all text-sm",
+                                          avaliacao[dim.key as keyof AvaliacaoAulaItem] === nota
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-border hover:border-muted-foreground"
+                                        )}
+                                      >
+                                        {nota}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Observações sobre este professor</label>
+                              <Textarea
+                                value={avaliacao.observacoes}
+                                onChange={(e) => handleUpdateAvaliacao(prof.id, 'observacoes', e.target.value)}
+                                placeholder="Observações específicas..."
+                                rows={2}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsAvaliacaoDialogOpen(false);
+                    setIsManageDialogOpen(true);
+                  }}
+                >
+                  Voltar
+                </Button>
+                <Button 
+                  onClick={handleSaveAvaliacoes} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Salvar Avaliações'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
