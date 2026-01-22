@@ -506,7 +506,7 @@ export default function AdminDashboard() {
       {/* MÓDULO 1: Stats Grid with Clickable Cards */}
       <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 ${isAAP ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}>
         <StatCard
-          title="Escolas"
+          title="Escola / Regional / Rede"
           value={totalEscolas}
           icon={<School size={24} />}
           variant="primary"
