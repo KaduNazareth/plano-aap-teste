@@ -1098,14 +1098,14 @@ export default function ProgramacaoPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" data-tour="prog-header">
         <div>
           <h1 className="page-header">Programação</h1>
           <p className="page-subtitle">Agende visitas e formações</p>
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="flex rounded-lg border border-border overflow-hidden">
+          <div className="flex rounded-lg border border-border overflow-hidden" data-tour="prog-view-toggle">
             <button
               onClick={() => setViewMode('calendar')}
               className={cn(
@@ -1129,6 +1129,7 @@ export default function ProgramacaoPage() {
           <button
             onClick={() => setIsUploadDialogOpen(true)}
             className="btn-outline flex items-center gap-2"
+            data-tour="prog-import-btn"
           >
             <Upload size={20} />
             Importar
@@ -1136,7 +1137,7 @@ export default function ProgramacaoPage() {
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <button className="btn-primary flex items-center gap-2">
+              <button className="btn-primary flex items-center gap-2" data-tour="prog-new-btn">
                 <Plus size={20} />
                 Nova Ação
               </button>
@@ -1420,7 +1421,7 @@ export default function ProgramacaoPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-tour="prog-filters">
         <span className="text-sm font-medium text-muted-foreground">Filtros</span>
         <div className="flex flex-wrap gap-3">
           <Select
@@ -1488,9 +1489,9 @@ export default function ProgramacaoPage() {
       {viewMode === 'calendar' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Calendar */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6">
+          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6" data-tour="prog-calendar">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6" data-tour="prog-navigation">
               <button
                 onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                 className="p-2 rounded-lg hover:bg-muted transition-colors"

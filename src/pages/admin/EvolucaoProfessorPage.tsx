@@ -503,8 +503,8 @@ export default function EvolucaoProfessorPage() {
   return (
     <div className="space-y-6">
       {/* Header with filters */}
-      <div className="flex flex-col lg:flex-row lg:items-end gap-4 justify-between">
-        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+      <div className="flex flex-col lg:flex-row lg:items-end gap-4 justify-between" data-tour="evo-header">
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap" data-tour="evo-filters">
           {/* AAP Filter */}
           <div className="space-y-2 min-w-[200px]">
             <label className="text-sm font-medium text-muted-foreground">AAP / Formador</label>
@@ -599,6 +599,7 @@ export default function EvolucaoProfessorPage() {
           onClick={handleExportPdf}
           disabled={isExportingPdf || !selectedProfessor || filteredAvaliacoes.length === 0}
           className="flex items-center gap-2"
+          data-tour="evo-export-btn"
         >
           {isExportingPdf ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -677,19 +678,25 @@ export default function EvolucaoProfessorPage() {
           </Card>
 
           {/* Evolution Line Chart */}
-          <EvolucaoLineChart
-            avaliacoes={filteredAvaliacoes}
-            dimensoesLabels={dimensoesLabels}
-          />
+          <div data-tour="evo-chart">
+            <EvolucaoLineChart
+              avaliacoes={filteredAvaliacoes}
+              dimensoesLabels={dimensoesLabels}
+            />
+          </div>
 
           {/* Evolution Matrix */}
-          <EvolucaoMatrix 
-            avaliacoes={filteredAvaliacoes}
-            dimensoesLabels={dimensoesLabels}
-          />
+          <div data-tour="evo-matrix">
+            <EvolucaoMatrix 
+              avaliacoes={filteredAvaliacoes}
+              dimensoesLabels={dimensoesLabels}
+            />
+          </div>
 
           {/* Observations Section */}
-          <EvolucaoObservacoes avaliacoes={filteredAvaliacoes} />
+          <div data-tour="evo-observacoes">
+            <EvolucaoObservacoes avaliacoes={filteredAvaliacoes} />
+          </div>
         </>
       )}
     </div>
