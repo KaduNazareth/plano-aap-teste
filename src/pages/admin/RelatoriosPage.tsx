@@ -784,13 +784,13 @@ export default function RelatoriosPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" data-tour="rel-header">
         <div>
           <h1 className="page-header">Relatórios</h1>
           <p className="page-subtitle">Acompanhe os indicadores do programa</p>
         </div>
         
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3" data-tour="rel-export-btns">
           <button 
             onClick={handleExportPdf} 
             disabled={isExportingPdf}
@@ -808,7 +808,7 @@ export default function RelatoriosPage() {
 
       {/* Email Notifications Section - Collapsible */}
       {isAdmin && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="bg-card rounded-xl border border-border overflow-hidden" data-tour="rel-email-section">
           <button
             onClick={() => setIsEmailSectionOpen(!isEmailSectionOpen)}
             className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
@@ -966,7 +966,7 @@ export default function RelatoriosPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" data-tour="rel-filters">
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-muted-foreground">Filtros</span>
           <div className="flex flex-wrap gap-3">
@@ -1048,7 +1048,7 @@ export default function RelatoriosPage() {
           <div ref={reportRef} className="space-y-2 bg-background p-1">
 
             {/* Summary Cards - 6 columns including segment distribution */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2" data-tour="rel-stats">
               <div className="stat-card">
                 <p className="text-sm text-muted-foreground">Formações</p>
                 <p className="text-2xl font-bold text-foreground">{formacoesRealizadas}/{formacoesPrevistas}</p>
@@ -1106,7 +1106,7 @@ export default function RelatoriosPage() {
             </div>
 
             {/* Charts Row 1 - Previsto vs Realizado + Desempenho por AAP */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2" data-tour="rel-charts">
               {/* Execution Chart */}
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="card-title mb-6">Previsto vs Realizado</h3>

@@ -997,7 +997,7 @@ export default function RegistrosPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" data-tour="reg-header">
         <div>
           <h1 className="page-header">Registros de Ações</h1>
           <p className="page-subtitle">
@@ -1008,16 +1008,16 @@ export default function RegistrosPage() {
                 : 'Visualize seus registros de ações'}
           </p>
         </div>
-        <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2">
+        <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2" data-tour="reg-export-btn">
           <Download size={18} />
           Exportar Excel
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" data-tour="reg-filters">
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-md" data-tour="reg-search">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input
               type="text"
@@ -1083,7 +1083,7 @@ export default function RegistrosPage() {
                 setSearchParams(searchParams);
               }
             }}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px]" data-tour="reg-status-filter">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1131,12 +1131,14 @@ export default function RegistrosPage() {
           <p className="text-muted-foreground">Os registros de ações aparecerão aqui após serem criados.</p>
         </div>
       ) : (
-        <DataTable
-          data={filteredRegistros}
-          columns={columns}
-          keyExtractor={(registro) => registro.id}
-          emptyMessage="Nenhum registro encontrado"
-        />
+        <div data-tour="reg-table">
+          <DataTable
+            data={filteredRegistros}
+            columns={columns}
+            keyExtractor={(registro) => registro.id}
+            emptyMessage="Nenhum registro encontrado"
+          />
+        </div>
       )}
 
       {/* Detail Modal */}
