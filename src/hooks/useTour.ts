@@ -546,6 +546,13 @@ export function useTour() {
     const tourType = getTourType();
     if (!tourType) return;
 
+    // Force cleanup of any existing tour overlay
+    const existingOverlay = document.querySelector('.driver-overlay');
+    const existingPopover = document.querySelector('.driver-popover');
+    if (existingOverlay) existingOverlay.remove();
+    if (existingPopover) existingPopover.remove();
+    document.body.classList.remove('driver-active');
+
     let config: TourConfig;
     
     if (page) {
@@ -577,17 +584,40 @@ export function useTour() {
       doneBtnText: 'Concluir',
       progressText: '{{current}} de {{total}}',
       steps: availableSteps,
+      allowClose: true,
+      stagePadding: 10,
+      stageRadius: 8,
       onDestroyStarted: () => {
         setIsTourActive(false);
         markTourAsCompleted(page);
+      },
+      onDestroyed: () => {
+        setIsTourActive(false);
+        // Extra cleanup
+        document.body.classList.remove('driver-active');
       },
       popoverClass: 'tour-popover',
     };
 
     const driverInstance = driver(driverConfig);
     setIsTourActive(true);
-    driverInstance.drive();
+    
+    // Start tour with a small delay to avoid conflicts with other UI elements
+    requestAnimationFrame(() => {
+      driverInstance.drive();
+    });
   }, [getTourType, markTourAsCompleted]);
+
+  // Force cleanup on unmount
+  useEffect(() => {
+    return () => {
+      const existingOverlay = document.querySelector('.driver-overlay');
+      const existingPopover = document.querySelector('.driver-popover');
+      if (existingOverlay) existingOverlay.remove();
+      if (existingPopover) existingPopover.remove();
+      document.body.classList.remove('driver-active');
+    };
+  }, []);
 
   return {
     startTour,
