@@ -1,175 +1,184 @@
 
-# Integração Notion → Sistema de Acompanhamento
+# Interface de Gerenciamento de Mapeamento Notion ↔ Sistema
 
 ## Resumo
 
-Implementar sincronização automática de tarefas criadas no Notion para as tabelas `programacoes` e `registros_acao` do sistema. Quando uma tarefa for criada ou atualizada no Notion, ela será automaticamente sincronizada com o sistema.
+Criar uma nova página administrativa para gerenciar o mapeamento entre usuários do Notion e usuários do sistema, permitindo configurar qual usuário do sistema corresponde a cada email do Notion e qual escola padrão associar às tarefas sincronizadas.
 
 ---
 
-## Arquitetura da Integração
+## Arquitetura da Interface
 
-```text
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Database      │     │  Supabase Edge  │     │    Supabase     │
-│   Notion        │────▶│    Function     │────▶│    Database     │
-│                 │     │  (notion-sync)  │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                       │
-        │  Webhook automático   │  Insere/Atualiza
-        │  (ao criar/editar)    │  programacoes ou
-        │                       │  registros_acao
-        ▼                       ▼
-```
-
----
-
-## Mapeamento de Campos
-
-| Campo Notion | Campo Sistema | Tabela | Observações |
-|--------------|---------------|--------|-------------|
-| Tarefa | `titulo` | programacoes | Nome da ação |
-| Prazo | `data` | programacoes | Data prevista |
-| Status | `status` | programacoes/registros | prevista, realizada, cancelada |
-| Descrição | `descricao` / `observacoes` | ambas | Detalhes da ação |
-| Etiquetas | `tipo` | ambas | visita, formacao, acompanhamento_aula |
-| Responsável | `aap_id` | ambas | Mapear email → user_id |
-| Projeto | `programa` | ambas | escolas, regionais, redes_municipais |
-| Eixo Relacionado | `segmento` / `componente` | ambas | anos_iniciais, lingua_portuguesa, etc. |
+A interface seguirá o mesmo padrão visual e de código das outras páginas administrativas existentes (EscolasPage, UsuariosPage), utilizando:
+- `DataTable` para exibição dos mapeamentos
+- `Dialog` para formulário de criação/edição
+- Filtros e busca
+- Feedback via `toast` (sonner)
 
 ---
 
 ## Componentes a Implementar
 
-### 1. Edge Function: `notion-sync`
+### 1. Nova Página: `src/pages/admin/NotionSyncPage.tsx`
 
-Receberá webhooks do Notion e processará as atualizações:
-
-```typescript
-// Fluxo principal
-1. Receber payload do webhook Notion
-2. Validar assinatura do webhook
-3. Extrair dados da tarefa
-4. Mapear campos Notion → Sistema
-5. Identificar se é programação ou registro
-6. Inserir/Atualizar no Supabase
-7. Retornar confirmação
-```
-
-### 2. Tabela de Mapeamento: `notion_sync_config`
-
-Para mapear responsáveis do Notion aos usuários do sistema:
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid | Chave primária |
-| notion_user_id | text | ID do usuário no Notion |
-| notion_user_email | text | Email no Notion |
-| system_user_id | uuid | user_id no sistema |
-| escola_padrao_id | uuid | Escola padrão para ações |
-
-### 3. Tabela de Log: `notion_sync_log`
-
-Para rastrear sincronizações:
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid | Chave primária |
-| notion_page_id | text | ID da página no Notion |
-| tabela_destino | text | programacoes ou registros_acao |
-| registro_id | uuid | ID do registro criado/atualizado |
-| status | text | sucesso, erro, ignorado |
-| erro_mensagem | text | Detalhes do erro se houver |
-| created_at | timestamp | Data da sincronização |
+Funcionalidades:
+- Listar todos os mapeamentos cadastrados em `notion_sync_config`
+- Adicionar novo mapeamento (email Notion → usuário do sistema + escola padrão)
+- Editar mapeamento existente
+- Excluir mapeamento
+- Ativar/desativar mapeamento
+- Visualizar logs de sincronização recentes
 
 ---
 
-## Lógica de Decisão: Programação vs Registro
+## Campos do Formulário
 
-```text
-IF Status = "Prevista" OR Status = "Agendada"
-   → Inserir em programacoes
-   
-IF Status = "Realizada" OR Status = "Concluída"
-   → Inserir em registros_acao
-   → Se existir programação relacionada, atualizar status
-   
-IF Status = "Cancelada"
-   → Atualizar status em programacoes (se existir)
-```
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| Email do Notion | texto | Sim | Email usado no Notion pelo responsável |
+| Usuário do Sistema | select | Sim | Dropdown com usuários do sistema (profiles) |
+| Escola Padrão | select | Sim | Dropdown com escolas ativas |
+| Ativo | switch | Não | Se o mapeamento está ativo |
 
 ---
 
-## Configuração Necessária
+## Visualização da Tabela
 
-### 1. Integração Notion (Internal Integration)
-
-O usuário precisará:
-1. Criar uma integração em https://www.notion.so/my-integrations
-2. Obter o **Internal Integration Token**
-3. Compartilhar o database com a integração
-4. Configurar webhook (ou usar polling como alternativa)
-
-### 2. Secrets Necessários
-
-| Secret | Descrição |
-|--------|-----------|
-| NOTION_API_KEY | Token da integração interna |
-| NOTION_DATABASE_ID | ID do database de tarefas |
-| NOTION_WEBHOOK_SECRET | Secret para validar webhooks |
+Colunas exibidas:
+1. **Status** - Badge indicando se está ativo/inativo
+2. **Email Notion** - Email configurado
+3. **Usuário Sistema** - Nome do usuário vinculado
+4. **Escola Padrão** - Nome da escola associada
+5. **Última Sincronização** - Data do último log de sucesso
+6. **Ações** - Editar, Excluir
 
 ---
 
-## Arquivos a Criar/Modificar
+## Integração com Menu
+
+Adicionar item no menu administrativo em `Sidebar.tsx`:
+- Ícone: `RefreshCw` ou `Link2`
+- Label: "Integração Notion"
+- Path: `/notion-sync`
+
+---
+
+## Seção de Logs
+
+Incluir na página uma seção que mostra os últimos 10 logs de sincronização da tabela `notion_sync_log`, exibindo:
+- Data/hora
+- Status (sucesso, erro, ignorado)
+- Tabela destino
+- Mensagem de erro (se houver)
+
+---
+
+## Fluxo de Arquivos
 
 | Arquivo | Ação | Descrição |
 |---------|------|-----------|
-| `supabase/functions/notion-sync/index.ts` | **CRIAR** | Edge function para webhook |
-| `supabase/config.toml` | **MODIFICAR** | Adicionar configuração da function |
-| Migração SQL | **CRIAR** | Tabelas notion_sync_config e notion_sync_log |
+| `src/pages/admin/NotionSyncPage.tsx` | **CRIAR** | Nova página de gerenciamento |
+| `src/components/layout/Sidebar.tsx` | **MODIFICAR** | Adicionar item de menu |
+| `src/App.tsx` | **MODIFICAR** | Adicionar rota `/notion-sync` |
 
 ---
 
-## Alternativa: Polling (caso webhooks não funcionem)
+## Detalhes Técnicos
 
-Se houver limitação com webhooks do Notion, podemos implementar:
-- Cron job que roda a cada 5-15 minutos
-- Consulta a API do Notion por tarefas modificadas
-- Sincroniza incrementalmente usando `last_edited_time`
+### Estrutura de Dados Utilizada
+
+```typescript
+interface NotionSyncConfig {
+  id: string;
+  notion_user_email: string;
+  notion_user_id: string | null;
+  system_user_id: string;
+  escola_padrao_id: string | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface NotionSyncLog {
+  id: string;
+  notion_page_id: string;
+  notion_database_id: string | null;
+  tabela_destino: string;
+  registro_id: string | null;
+  operacao: string;
+  status: string;
+  erro_mensagem: string | null;
+  payload: Json | null;
+  created_at: string;
+}
+```
+
+### Queries Supabase
+
+```typescript
+// Buscar configurações com joins
+const { data } = await supabase
+  .from('notion_sync_config')
+  .select(`
+    *,
+    profiles:system_user_id(nome, email),
+    escolas:escola_padrao_id(nome)
+  `)
+  .order('created_at', { ascending: false });
+
+// Buscar logs recentes
+const { data: logs } = await supabase
+  .from('notion_sync_log')
+  .select('*')
+  .order('created_at', { ascending: false })
+  .limit(10);
+```
+
+### Permissões
+
+A página será acessível apenas para **administradores**, seguindo o mesmo padrão da página de Usuários:
+- Verificação via `useAuth()` hook
+- RLS já configurado nas tabelas notion_sync_config e notion_sync_log
 
 ---
 
-## Fluxo de Implementação
+## Mockup Visual
 
-1. **Fase 1:** Criar tabelas de configuração e log
-2. **Fase 2:** Implementar Edge Function para receber dados
-3. **Fase 3:** Configurar mapeamento de usuários
-4. **Fase 4:** Testar sincronização
-5. **Fase 5:** Configurar webhook/polling no Notion
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Integração Notion                                              │
+│  Configure o mapeamento entre usuários do Notion e do sistema  │
+│                                                    [+ Novo]     │
+├─────────────────────────────────────────────────────────────────┤
+│ 🔍 Buscar por email...                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Status │ Email Notion │ Usuário Sistema │ Escola │ Ações       │
+├────────┼──────────────┼─────────────────┼────────┼─────────────┤
+│ ● Ativo│ user@notion  │ João Silva      │ E.E. X │ ✏️ 🗑️       │
+│ ○ Inat │ old@notion   │ Maria Santos    │ E.E. Y │ ✏️ 🗑️       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  Últimas Sincronizações                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Data/Hora        │ Status   │ Destino      │ Erro               │
+├──────────────────┼──────────┼──────────────┼────────────────────┤
+│ 06/02 17:30      │ ✓ sucesso│ programacoes │ -                  │
+│ 06/02 17:29      │ ⚠ ignor. │ programacoes │ Usuário não mapeado│
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Próximos Passos Necessários
+## Validações
 
-Antes de implementar, precisamos:
-
-1. **NOTION_API_KEY** - Você precisará criar uma integração no Notion e fornecer o token
-2. **NOTION_DATABASE_ID** - O ID do database de tarefas (está na URL quando você abre o database)
-3. **Mapeamento de Responsáveis** - Lista de emails do Notion → emails do sistema
-
----
-
-## Considerações de Segurança
-
-- Validação de assinatura do webhook
-- RLS nas tabelas de configuração (apenas admin)
-- Log de todas as sincronizações para auditoria
-- Tratamento de erros sem expor dados sensíveis
+- Email do Notion não pode ser duplicado
+- Usuário do sistema é obrigatório
+- Escola padrão é obrigatória para que as tarefas possam ser sincronizadas
+- Feedback visual claro para cada estado (sucesso, erro, aguardando)
 
 ---
 
-## Estimativa
+## Botão de Sincronização Manual
 
-- **Complexidade:** Média-Alta
-- **Impacto:** Criação de 2 novas tabelas, 1 Edge Function
-- **Dependências:** Configuração da integração Notion pelo usuário
+Adicionar um botão "Sincronizar Agora" que chama a Edge Function `notion-sync` para executar uma sincronização manual, permitindo testar a configuração após adicionar um novo mapeamento.
