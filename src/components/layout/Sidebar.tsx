@@ -14,7 +14,8 @@ import {
   FileText,
   UserCog,
   TrendingUp,
-  Printer
+  Printer,
+  Link2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ const adminMenuItems = [
   { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
   { icon: Printer, label: 'Lista de Presença', path: '/lista-presenca' },
   { icon: UserCog, label: 'Usuários', path: '/usuarios' },
+  { icon: Link2, label: 'Integração Notion', path: '/notion-sync' },
 ];
 
 const gestorMenuItems = [
