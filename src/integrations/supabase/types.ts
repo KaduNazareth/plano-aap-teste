@@ -192,6 +192,93 @@ export type Database = {
         }
         Relationships: []
       }
+      notion_sync_config: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          escola_padrao_id: string | null
+          id: string
+          notion_user_email: string
+          notion_user_id: string | null
+          system_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          escola_padrao_id?: string | null
+          id?: string
+          notion_user_email: string
+          notion_user_id?: string | null
+          system_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          escola_padrao_id?: string | null
+          id?: string
+          notion_user_email?: string
+          notion_user_id?: string | null
+          system_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_escola_padrao"
+            columns: ["escola_padrao_id"]
+            isOneToOne: false
+            referencedRelation: "escolas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_system_user"
+            columns: ["system_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notion_sync_log: {
+        Row: {
+          created_at: string
+          erro_mensagem: string | null
+          id: string
+          notion_database_id: string | null
+          notion_page_id: string
+          operacao: string
+          payload: Json | null
+          registro_id: string | null
+          status: string
+          tabela_destino: string
+        }
+        Insert: {
+          created_at?: string
+          erro_mensagem?: string | null
+          id?: string
+          notion_database_id?: string | null
+          notion_page_id: string
+          operacao?: string
+          payload?: Json | null
+          registro_id?: string | null
+          status?: string
+          tabela_destino: string
+        }
+        Update: {
+          created_at?: string
+          erro_mensagem?: string | null
+          id?: string
+          notion_database_id?: string | null
+          notion_page_id?: string
+          operacao?: string
+          payload?: Json | null
+          registro_id?: string | null
+          status?: string
+          tabela_destino?: string
+        }
+        Relationships: []
+      }
       presencas: {
         Row: {
           created_at: string
