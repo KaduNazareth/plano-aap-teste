@@ -1,163 +1,134 @@
 
 
-# Configuracao Dinamica de Campos -- Observacao de Aula
+# Pendencias e Notificacoes de Atraso para N3 (Coordenador do Programa)
 
 ## Resumo
 
-Criar um sistema que permite ao Administrador (N1) ativar/desativar campos do formulario de Observacao de Aula por perfil (N1-N8). Campos desativados nao aparecem na UI, nao sao obrigatorios e sao rejeitados no backend.
+Consolidar o sistema de pendencias para que o perfil N3 (Coordenador do Programa) visualize acoes atrasadas dentro dos seus Programas, com badge no menu, tela dedicada de Pendencias e notificacoes por email via a Edge Function existente.
 
-## Modelo de Dados
+## Mapeamento de Campos
 
-Nova tabela `form_field_config`:
+A tabela `registros_acao` ja possui os campos necessarios, sem necessidade de colunas novas:
 
-```text
-+------------------+----------+----------+---------+----------+------------+------------+
-| form_key (text)  | field_key| role     | enabled | required | updated_at | updated_by |
-|                  | (text)   | (app_role)| (bool) | (bool)   | (timestampz)| (uuid)    |
-+------------------+----------+----------+---------+----------+------------+------------+
-| PK: (form_key, field_key, role)                                                       |
-+------------------+----------+----------+---------+----------+------------+------------+
-```
+| Campo solicitado | Campo existente | Observacao |
+|------------------|-----------------|------------|
+| `data_prevista` | `data` (ou `reagendada_para` se reagendada) | Ja usado na logica atual |
+| `data_conclusao` | Inferido por `status = 'realizada'` + `updated_at` | Nao precisa coluna separada |
+| `responsavel_user_id` | `aap_id` | Usuario responsavel pela acao |
+| `program_id` | `programa` (array text[]) | Vinculo com programa(s) |
+| `escola_id` | `escola_id` | Ja existe |
+| `status` | `status` ('agendada', 'reagendada', 'realizada', 'cancelada') | Ja existe |
 
-- `form_key`: sempre `'observacao_aula'` por enquanto (extensivel para outros formularios)
-- `field_key`: identificador do campo, ex: `clareza_objetivos`, `dominio_conteudo`, `estrategias_didaticas`, `engajamento_turma`, `gestao_tempo`, `observacoes_professor`, `observacoes_gerais`, `avancos`, `dificuldades`, `turma`
-- `role`: um dos valores de `app_role` (admin, gestor, n3_coordenador_programa, etc.)
-- `enabled`: se o campo aparece para esse perfil (default: true)
-- `required`: se o campo e obrigatorio para esse perfil (default: false)
-- RLS: somente N1 pode INSERT/UPDATE/DELETE; todos autenticados podem SELECT
-
-Migracao incluira seed com todos os campos habilitados para todos os perfis que tem acesso a Observacao de Aula.
-
-## Campos do Formulario Observacao de Aula
-
-| field_key | Label | Tipo |
-|-----------|-------|------|
-| clareza_objetivos | Intencionalidade Pedagogica | Rating 1-5 |
-| dominio_conteudo | Estrategias Didaticas | Rating 1-5 |
-| estrategias_didaticas | Mediacao Docente | Rating 1-5 |
-| engajamento_turma | Engajamento dos Estudantes | Rating 1-5 |
-| gestao_tempo | Avaliacao durante a Aula | Rating 1-5 |
-| observacoes_professor | Observacoes (por professor) | Texto |
-| observacoes_gerais | Observacoes Gerais da Visita | Texto |
-| avancos | Avancos Identificados | Texto |
-| dificuldades | Dificuldades Encontradas | Texto |
-| turma | Turma | Texto |
+Regra de atraso (mantida): `status IN ('agendada','reagendada') AND data relevante < hoje - 2 dias`
 
 ## Etapas de Implementacao
 
-### 1. Migracao de Banco de Dados
+### 1. Hook de Pendencias -- `usePendencias`
 
-- Criar tabela `form_field_config` com PK composta (form_key, field_key, role)
-- RLS: SELECT para todos autenticados; ALL para is_admin
-- Seed inicial: inserir linhas para cada combinacao de field_key x role (somente roles com acesso a observacao_aula: admin, gestor, n3, n4_1, n4_2, n5, n6, n7, n8), todos com enabled=true, required=false
+Criar `src/hooks/usePendencias.ts`:
+- Busca `registros_acao` com status `agendada` ou `reagendada`
+- Filtra no cliente os que estao atrasados (data > 2 dias)
+- Para N3: filtra por `programa` que intersecta com `profile.programas`
+- Para N1/N2: mostra todos (ou por programa se gestor)
+- Retorna `{ pendencias, count, isLoading }`
+- Aceita filtros opcionais: programa, escola_id, tipo
 
-### 2. Hook de Dados -- `useFormFieldConfig`
+### 2. Badge de Pendencias no Sidebar
 
-Criar `src/hooks/useFormFieldConfig.ts`:
-- Busca `form_field_config` filtrado por `form_key` e `role` do usuario logado
-- Cache via React Query com chave `['form_field_config', formKey, role]`
-- Exporta funcoes auxiliares: `isFieldEnabled(fieldKey)`, `isFieldRequired(fieldKey)`
-- Retorna mapa `Record<string, { enabled: boolean; required: boolean }>`
+Atualizar `src/components/layout/Sidebar.tsx`:
+- Para perfis N2 e N3 (manager tier): adicionar item "Pendencias" com icone `AlertTriangle` ou `Bell`
+- Mostrar badge vermelho com contador ao lado do item de menu
+- Badge visivel tambem para N1 (admin)
+- Usar o hook `usePendencias` para obter o contador
 
-### 3. Atualizar Formulario de Observacao de Aula
+### 3. Pagina de Pendencias
 
-Em `AAPRegistrarAcaoPage.tsx`:
-- Importar `useFormFieldConfig('observacao_aula')`
-- Envolver cada campo com condicional `isFieldEnabled('field_key')`
-- Nas dimensoes de avaliacao, filtrar `dimensoesAvaliacao` para mostrar somente as habilitadas
-- No `handleSubmit`, antes de inserir em `avaliacoes_aula`, remover campos desabilitados do payload
-- Campos desabilitados recebem valor default (3 para ratings, null para texto) para nao quebrar a estrutura da tabela `avaliacoes_aula`
+Criar `src/pages/admin/PendenciasPage.tsx`:
+- Acessivel por N1, N2 e N3
+- Header com contador total de pendencias
+- Filtros: Programa, Entidade (escola), Tipo de Acao
+- Tabela com colunas: Tipo | Escola | Responsavel (AAP) | Data Prevista | Dias de Atraso | Acoes
+- Cada linha com badge de severidade (amarelo < 5 dias, vermelho >= 5 dias)
+- Botao para abrir o registro no detalhe (redireciona para /registros com filtro)
+- Dados filtrados pelo escopo do usuario (N3 ve somente seus Programas via RLS)
 
-### 4. Tela Admin -- Configurar Formulario
+### 4. Rota e Navegacao
 
-Criar `src/pages/admin/FormFieldConfigPage.tsx`:
-- Somente acessivel por N1
-- Tabela com linhas = campos, colunas = perfis (N1-N8)
-- Cada celula: toggle de habilitado/desabilitado + badge de obrigatorio
-- Ao alterar, faz upsert em `form_field_config`
-- Preview rapido: dropdown para selecionar perfil e visualizar como o formulario ficaria
-- Rota: `/admin/configurar-formulario`
+- Nova rota: `/pendencias` em `App.tsx`
+- Adicionar em `ALLOWED_ROUTES` do AppLayout para `admin` e `manager`
+- Adicionar no `managerMenuItems` do Sidebar com icone `AlertTriangle` e badge
 
-### 5. Rota e Menu
+### 5. Atualizar Edge Function `send-pending-notifications`
 
-- Adicionar rota `/admin/configurar-formulario` em `App.tsx`
-- Adicionar item no Sidebar admin: "Configurar Formulario" com icone `Settings2` ou `SlidersHorizontal`
-- Adicionar em `ALLOWED_ROUTES` do AppLayout somente para admin
+Modificar `supabase/functions/send-pending-notifications/index.ts`:
+- Alem de notificar os AAPs responsaveis (comportamento atual mantido), tambem notificar os N3 responsaveis pelo programa
+- Logica adicional:
+  1. Agrupar registros atrasados por `programa`
+  2. Para cada programa, buscar usuarios com role `n3_coordenador_programa` vinculados via `user_programas`
+  3. Enviar email consolidado ao N3 com lista de acoes atrasadas do(s) programa(s) que coordena
+  4. Respeitar escopo: N3 so recebe notificacao dos programas em `user_programas`
+- Template de email especifico para N3 com visao por programa (agrupando acoes)
 
-### 6. Validacao Backend (Edge Function)
+### 6. Autorizacao da Edge Function para N3
 
-Nao sera necessaria uma edge function separada neste momento. A validacao ocorrera no frontend antes do insert, e os campos desabilitados serao substituidos por valores default antes de salvar. A tabela `avaliacoes_aula` exige todas as colunas de rating (NOT NULL com default 3), entao campos desabilitados serao salvos com o valor default. A RLS existente ja controla o acesso por perfil.
-
-Para protecao extra futura, pode-se criar um trigger `BEFORE INSERT ON avaliacoes_aula` que verifica `form_field_config` e rejeita payloads com campos nao permitidos. Isso sera implementado como trigger SQL na migracao.
+Atualizar a verificacao de autorizacao na edge function:
+- Alem de `admin`, permitir que `n3_coordenador_programa` e `gestor` disparem a funcao via JWT
+- Manter a autenticacao por secret key para cron jobs
 
 ## Detalhes Tecnicos
 
-### Estrutura do Hook
+### Hook usePendencias
 
 ```typescript
-export function useFormFieldConfig(formKey: string) {
-  const { profile } = useAuth();
-  const role = profile?.role;
+export function usePendencias(filters?: { programa?: string; escolaId?: string; tipo?: string }) {
+  const { user, profile, isAdmin, roleTier } = useAuth();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['form_field_config', formKey, role],
+  return useQuery({
+    queryKey: ['pendencias', user?.id, filters],
     queryFn: async () => {
       const { data } = await supabase
-        .from('form_field_config')
-        .select('field_key, enabled, required')
-        .eq('form_key', formKey)
-        .eq('role', role);
-      return data;
+        .from('registros_acao')
+        .select('id, data, tipo, escola_id, aap_id, status, reagendada_para, programa')
+        .in('status', ['agendada', 'reagendada']);
+
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+      return (data || []).filter(r => {
+        const relevantDate = r.status === 'reagendada' && r.reagendada_para
+          ? new Date(r.reagendada_para)
+          : new Date(r.data);
+        return relevantDate <= twoDaysAgo;
+      });
     },
-    enabled: !!role,
   });
-
-  const configMap = useMemo(() => {
-    // defaults to enabled if no config found
-    ...
-  }, [data]);
-
-  return {
-    configMap,
-    isFieldEnabled: (key: string) => configMap[key]?.enabled ?? true,
-    isFieldRequired: (key: string) => configMap[key]?.required ?? false,
-    isLoading,
-  };
 }
 ```
 
-### Trigger de Validacao (SQL)
+Nota: A filtragem por programa para N3 ja e feita automaticamente pela RLS existente (policy "N2N3 Managers view registros" que valida `user_programas`).
 
-```sql
-CREATE OR REPLACE FUNCTION validate_avaliacao_fields()
-RETURNS TRIGGER AS $$
-DECLARE
-  user_role app_role;
-  field_cfg RECORD;
-BEGIN
-  SELECT role INTO user_role FROM user_roles WHERE user_id = NEW.aap_id;
+### Badge no Sidebar
 
-  FOR field_cfg IN
-    SELECT field_key, enabled FROM form_field_config
-    WHERE form_key = 'observacao_aula' AND role = user_role AND enabled = false
-  LOOP
-    -- Reset disabled fields to default
-    IF field_cfg.field_key = 'clareza_objetivos' THEN NEW.clareza_objetivos := 3; END IF;
-    IF field_cfg.field_key = 'dominio_conteudo' THEN NEW.dominio_conteudo := 3; END IF;
-    -- ... etc for each field
-  END LOOP;
+O badge sera um componente inline no item de menu:
 
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+```typescript
+// Dentro do map de menuItems
+{item.path === '/pendencias' && pendenciasCount > 0 && (
+  <span className="ml-auto bg-error text-white text-xs rounded-full px-2 py-0.5">
+    {pendenciasCount}
+  </span>
+)}
 ```
 
-### Tela de Configuracao (Layout)
+### Edge Function -- Notificacao N3
 
-A pagina tera:
-1. Titulo e descricao
-2. Tabela matricial: campos (linhas) x perfis (colunas)
-3. Cada celula com Switch para enabled + indicador de required
-4. Botao "Salvar Alteracoes" com batch upsert
-5. Secao "Preview" com select de perfil mostrando quais campos aparecerao
+Apos o loop existente de notificacao dos AAPs, adicionar:
 
+1. Buscar todos os programas com acoes atrasadas
+2. Buscar N3s via `user_roles` (role = 'n3_coordenador_programa') + `user_programas`
+3. Para cada N3, filtrar acoes atrasadas que pertencem aos seus programas
+4. Enviar email com template agrupado por programa
+
+### Nenhuma migracao de banco necessaria
+
+A tabela `registros_acao` ja possui todos os campos necessarios. As RLS existentes para N2/N3 ja filtram por programa. Nenhuma coluna nova precisa ser criada.
