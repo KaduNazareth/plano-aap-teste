@@ -1,151 +1,106 @@
 
 
-## Fase 1 -- Banco de Dados: Novos Roles e Tabela Unificada de Vinculos
+# Matriz de Acoes/Eventos por Perfil
 
-Esta fase foca exclusivamente nas alteracoes de banco de dados, sem tocar no frontend ou edge functions.
+## Resumo
 
----
+Implementar um sistema centralizado de permissoes por tipo de acao e perfil (N1-N8), controlando quem pode criar, editar, excluir e visualizar cada tipo de acao. Inclui uma tela administrativa (N1) para visualizar a matriz carregada.
 
-### 1.1 Expandir o enum `app_role`
+## Tipos de Acao (acao_tipo)
 
-Adicionar os novos valores ao enum existente, mantendo os antigos para compatibilidade temporaria:
+Os tipos de acao padronizados serao:
+- `observacao_aula` (Observacao de Aula) -- substitui `acompanhamento_aula`
+- `devolutiva_pedagogica` (Devolutiva Pedagogica) -- novo
+- `autoavaliacao` (Autoavaliacao) -- novo
+- `avaliacao_formacao_participante` (Avaliacao de Formacao - Participante) -- novo
+- `qualidade_atpcs` (Qualidade de ATPCs) -- novo
+- `formacao` (Formacao) -- existente
+- `visita` (Visita) -- existente
 
-| Valor atual | Novo valor (adicionar) | Descricao |
-|---|---|---|
-| `admin` | (manter) | N1 Administrador |
-| `gestor` | (manter) | N2 Gerente do Programa |
-| -- | `n3_coordenador_programa` | N3 Coordenador do Programa |
-| -- | `n4_1_cped` | N4.1 Consultor Pedagogico |
-| -- | `n4_2_gpi` | N4.2 Gestor de Parceria e Implementacao |
-| `aap_inicial` | (manter) | N5 Formador (migrar depois) |
-| `aap_portugues` | (manter) | N5 Formador (migrar depois) |
-| `aap_matematica` | (manter) | N5 Formador (migrar depois) |
-| -- | `n5_formador` | N5 Formador (novo valor unificado) |
-| -- | `n6_coord_pedagogico` | N6 Coordenador Pedagogico |
-| -- | `n7_professor` | N7 Professor/Vice/Diretor |
-| -- | `n8_equipe_tecnica` | N8 Equipe Tecnica SME |
+## Matriz de Permissoes por Perfil
 
-Os valores antigos (`aap_inicial`, `aap_portugues`, `aap_matematica`) serao mantidos nesta fase para nao quebrar o sistema em producao.
+| Acao | N1 | N2/N3 | N4/N5 | N6 | N7 | N8 |
+|------|-----|-------|-------|-----|-----|-----|
+| Formacao | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
+| Visita | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
+| Observacao de Aula | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | CR(entidade) | CR(programa) |
+| Devolutiva Pedagogica | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
+| Autoavaliacao | CRUD | CRUD(programa) | - | CR(proprio) | - | - |
+| Aval. Formacao Participante | CRUD | CRUD(programa) | - | CR(proprio) | CR(proprio) | - |
+| Qualidade ATPCs | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
 
----
+## Etapas de Implementacao
 
-### 1.2 Criar tabela unificada `user_programas`
+### 1. Definicao da Matriz no Frontend (configuracao central)
 
-Substituir as tabelas separadas `gestor_programas` e `aap_programas` por uma unica tabela:
+Criar `src/config/acaoPermissions.ts` com:
+- Constante `ACAO_TYPES` definindo todos os tipos de acao com label e icone
+- Constante `ACAO_PERMISSION_MATRIX` mapeando cada role a cada acao_tipo com flags: `canCreate`, `canEdit`, `canDelete`, `canView`, e `viewScope` (proprio / entidade / programa / all)
+- Funcoes auxiliares: `canUserCreateAcao(role, acaoTipo)`, `canUserViewAcao(role, acaoTipo)`, `getAcoesForRole(role)`, `getPermissionsForAcao(role, acaoTipo)`
 
-```text
-user_programas
-  id          uuid PK
-  user_id     uuid NOT NULL
-  programa    programa_type NOT NULL
-  created_at  timestamptz DEFAULT now()
-  UNIQUE(user_id, programa)
+### 2. Migracao de Banco de Dados
+
+- Criar enum `acao_tipo` ou usar text com check constraint para padronizar os tipos
+- Adicionar alias de compatibilidade: `acompanhamento_aula` mapeia para `observacao_aula`
+- Nenhuma nova tabela e necessaria -- a matriz fica no frontend como configuracao estatica; o backend valida via RLS + edge function
+
+### 3. Atualizacao da UI -- Menu e Telas de Criacao
+
+- **Sidebar**: nenhuma mudanca estrutural, pois ja usa tier-based menus
+- **AAPRegistrarAcaoPage**: filtrar `tipoAcaoLabels` usando `getAcoesForRole(profile.role)` para mostrar apenas tipos permitidos
+- **RegistrosPage**: filtrar acoes visiveis e botoes de editar/excluir usando a matriz
+- **ProgramacaoPage**: na criacao de programacao, filtrar tipos de acao disponiveis pelo perfil
+
+### 4. Validacao no Backend
+
+- Atualizar a edge function `manage-users` ou criar uma nova funcao `validate-acao-permission` que verifica a matriz antes de salvar
+- Alternativamente, validar inline no frontend antes do insert e confiar nas RLS existentes para escopo (as RLS ja controlam programa/entidade)
+- Para N6 e N7 criando registros (observacao_aula, autoavaliacao, avaliacao_formacao_participante), sera necessario adicionar RLS INSERT policies para `is_local_user` na tabela `registros_acao` e `avaliacoes_aula`, limitadas aos tipos permitidos
+
+### 5. Tela Administrativa -- Matriz de Acoes x Perfis (somente N1)
+
+- Criar `src/pages/admin/MatrizAcoesPage.tsx`
+- Tabela visual mostrando todos os tipos de acao vs todos os perfis, com icones de permissao (check verde, X vermelho, olho para view-only)
+- Rota `/matriz-acoes` adicionada ao `App.tsx` e ao menu admin no `Sidebar.tsx`
+- Dados carregados da constante `ACAO_PERMISSION_MATRIX` (read-only, sem edicao)
+
+### 6. Atualizacao de Labels e Compatibilidade
+
+- Atualizar `tipoAcaoLabels` em `mockData.ts` com os novos tipos
+- Manter compatibilidade com `acompanhamento_aula` mapeando para `observacao_aula` onde necessario
+
+## Detalhes Tecnicos
+
+### Estrutura do arquivo `acaoPermissions.ts`
+
+```typescript
+export type AcaoTipo = 
+  | 'formacao' | 'visita' | 'observacao_aula' 
+  | 'devolutiva_pedagogica' | 'autoavaliacao'
+  | 'avaliacao_formacao_participante' | 'qualidade_atpcs';
+
+export type ViewScope = 'proprio' | 'entidade' | 'programa' | 'all';
+
+export interface AcaoPermission {
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canView: boolean;
+  viewScope: ViewScope;
+}
+
+// ACAO_PERMISSION_MATRIX: Record<AppRole, Record<AcaoTipo, AcaoPermission>>
 ```
 
-Migrar dados existentes:
-- Copiar `gestor_programas.gestor_user_id` -> `user_programas.user_id`
-- Copiar `aap_programas.aap_user_id` -> `user_programas.user_id`
+### Novas RLS Policies necessarias
 
----
+- `registros_acao`: INSERT policy para `is_local_user` com restricao de tipo (`observacao_aula`, `autoavaliacao`, `avaliacao_formacao_participante`)
+- `avaliacoes_aula`: INSERT policy para `is_local_user` limitada a suas entidades
+- `registros_acao`: INSERT policy para `is_observer` (N8) para `observacao_aula`
 
-### 1.3 Criar tabela unificada `user_entidades`
+### Rota e Menu
 
-Renomear conceitualmente `aap_escolas` para uma tabela generica que qualquer role pode usar:
-
-```text
-user_entidades
-  id          uuid PK
-  user_id     uuid NOT NULL
-  escola_id   uuid NOT NULL REFERENCES escolas(id)
-  created_at  timestamptz DEFAULT now()
-  UNIQUE(user_id, escola_id)
-```
-
-Migrar dados de `aap_escolas` para `user_entidades`.
-
----
-
-### 1.4 Novas funcoes helper (security definer)
-
-Criar funcoes auxiliares para os novos roles, evitando recursao no RLS:
-
-- `get_user_role(_user_id uuid) RETURNS app_role` -- ja existe, funciona para novos valores
-- `user_has_programa(_user_id uuid, _programa programa_type) RETURNS boolean` -- consulta `user_programas`
-- `user_can_view_escola(_user_id uuid, _escola_id uuid) RETURNS boolean` -- consulta `user_entidades` OU admin
-- `is_n1_admin` -- alias para `is_admin`
-- `is_manager(_user_id uuid) RETURNS boolean` -- retorna true se role IN ('admin', 'gestor', 'n3_coordenador_programa')
-- `user_has_escola_access(_user_id uuid, _escola_id uuid) RETURNS boolean` -- verifica via `user_entidades` + `user_programas` + `escolas.programa`
-
----
-
-### 1.5 Atualizar RLS policies das tabelas principais
-
-Todas as policies que hoje referenciam `gestor_programas`, `aap_programas` ou `aap_escolas` serao atualizadas para usar as novas tabelas e funcoes:
-
-**Tabelas afetadas:**
-- `escolas` (3 policies)
-- `professores` (12 policies)
-- `programacoes` (10 policies)
-- `registros_acao` (10 policies)
-- `presencas` (8 policies)
-- `avaliacoes_aula` (8 policies)
-- `user_programas` (nova -- admin ALL, users SELECT own)
-- `user_entidades` (nova -- admin/gestor ALL, users SELECT own)
-
-Padrao de policy para cada tabela de dados:
-1. Admin (N1): ALL sem restricao
-2. Manager (N2/N3): CRUD filtrado por programa via `user_programas`
-3. Operacional (N4/N5): CRUD filtrado por programa + entidade via `user_entidades`
-4. Local (N6/N7): SELECT e INSERT limitado a propria entidade
-5. Observador (N8): SELECT filtrado por programa
-
----
-
-### 1.6 Manter tabelas antigas como views (compatibilidade)
-
-Para nao quebrar o frontend e edge functions existentes durante a fase de transicao:
-- Criar views `gestor_programas_v` e `aap_programas_v` e `aap_escolas_v` que apontam para as novas tabelas
-- OU manter as tabelas antigas com triggers de sincronizacao bidirecional
-
-A abordagem recomendada e manter as tabelas antigas intactas nesta fase e usar as novas em paralelo, migrando o frontend na Fase 2.
-
----
-
-### Resumo de objetos criados nesta fase
-
-| Tipo | Nome | Acao |
-|---|---|---|
-| Enum | `app_role` | ADD VALUES (5 novos) |
-| Tabela | `user_programas` | CREATE + migrar dados |
-| Tabela | `user_entidades` | CREATE + migrar dados |
-| Funcao | `user_has_programa` | CREATE |
-| Funcao | `user_can_view_escola` | CREATE |
-| Funcao | `is_manager` | CREATE |
-| Funcao | `user_has_escola_access` | CREATE |
-| Policies | ~50 policies | DROP + CREATE |
-
----
-
-### Detalhes tecnicos -- SQL da migracao
-
-A migracao sera um unico arquivo SQL contendo:
-
-1. `ALTER TYPE app_role ADD VALUE` para cada novo role
-2. `CREATE TABLE user_programas` com RLS
-3. `CREATE TABLE user_entidades` com RLS
-4. `INSERT INTO user_programas SELECT ... FROM gestor_programas UNION SELECT ... FROM aap_programas`
-5. `INSERT INTO user_entidades SELECT ... FROM aap_escolas`
-6. Funcoes helper com `SECURITY DEFINER`
-7. DROP + CREATE de todas as policies afetadas usando as novas funcoes
-
----
-
-### Riscos e mitigacao
-
-- **Risco**: Queries existentes no frontend usam `gestor_programas`/`aap_programas` diretamente
-  - **Mitigacao**: Tabelas antigas permanecem intactas; frontend sera atualizado na Fase 2
-- **Risco**: Edge Functions referenciam roles antigos (`aap_inicial`, etc.)
-  - **Mitigacao**: Enum antigo e mantido; funcoes serao atualizadas na Fase 3
-- **Risco**: RLS policies novas podem bloquear acesso existente
-  - **Mitigacao**: Policies usam OR para aceitar tanto roles antigos quanto novos
+- Nova rota: `/matriz-acoes` -> `MatrizAcoesPage`
+- Sidebar admin: adicionar item "Matriz de Acoes" com icone `Grid3X3` ou `Table`
+- AppLayout ALLOWED_ROUTES: adicionar `/matriz-acoes` apenas para admin
 
