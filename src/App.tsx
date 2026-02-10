@@ -22,6 +22,7 @@ import NotionSyncPage from "./pages/admin/NotionSyncPage";
 import HistoricoPresencaPage from "./pages/admin/HistoricoPresencaPage";
 import MatrizAcoesPage from "./pages/admin/MatrizAcoesPage";
 import FormFieldConfigPage from "./pages/admin/FormFieldConfigPage";
+import PendenciasPage from "./pages/admin/PendenciasPage";
 import AAPRegistrarAcaoPage from "./pages/aap/AAPRegistrarAcaoPage";
 import NotFound from "./pages/NotFound";
 
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="/historico-presenca" element={<HistoricoPresencaPage />} />
               <Route path="/matriz-acoes" element={<MatrizAcoesPage />} />
               <Route path="/admin/configurar-formulario" element={<FormFieldConfigPage />} />
+              <Route path="/pendencias" element={<PendenciasPage />} />
               
               {/* AAP Routes */}
               <Route path="/aap/dashboard" element={<AdminDashboard />} />
