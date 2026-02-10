@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { segmentoLabels, componenteLabels, cargoLabels, tipoAcaoLabels } from '@/data/mockData';
+import { getCreatableAcoes, getAcaoLabel, normalizeAcaoTipo, ACAO_TYPE_INFO } from '@/config/acaoPermissions';
 import { NotaAvaliacao, notaAvaliacaoLabels, Segmento, ComponenteCurricular } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -239,7 +240,7 @@ export default function AAPRegistrarAcaoPage() {
     );
   }, [selectedProgramacao, professores]);
 
-  const isAcompanhamentoAula = selectedProgramacao?.tipo === 'acompanhamento_aula';
+  const isAcompanhamentoAula = selectedProgramacao?.tipo === 'acompanhamento_aula' || selectedProgramacao?.tipo === 'observacao_aula';
 
   const handleSelectProgramacao = (prog: ProgramacaoDB) => {
     setSelectedProgramacao(prog);
@@ -495,10 +496,15 @@ export default function AAPRegistrarAcaoPage() {
   };
 
   const getTipoVariant = (tipo: string) => {
-    switch (tipo) {
+    const normalized = normalizeAcaoTipo(tipo);
+    switch (normalized) {
       case 'formacao': return 'primary';
       case 'visita': return 'info';
-      case 'acompanhamento_aula': return 'warning';
+      case 'observacao_aula': return 'warning';
+      case 'devolutiva_pedagogica': return 'success';
+      case 'autoavaliacao': return 'default';
+      case 'avaliacao_formacao_participante': return 'default';
+      case 'qualidade_atpcs': return 'info';
       default: return 'default';
     }
   };
@@ -555,14 +561,20 @@ export default function AAPRegistrarAcaoPage() {
             value={tipoFilter}
             onValueChange={setTipoFilter}
           >
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Tipo</SelectItem>
-              <SelectItem value="formacao">Formação</SelectItem>
-              <SelectItem value="visita">Visita</SelectItem>
-              <SelectItem value="acompanhamento_aula">Acompanhamento de Aula</SelectItem>
+              {getCreatableAcoes(profile?.role).map(tipo => (
+                <SelectItem key={tipo} value={tipo}>
+                  {ACAO_TYPE_INFO[tipo].label}
+                </SelectItem>
+              ))}
+              {/* Backward compat: also show acompanhamento_aula if present in data */}
+              {!getCreatableAcoes(profile?.role).includes('observacao_aula') ? null : (
+                <SelectItem value="acompanhamento_aula" className="hidden">Acompanhamento de Aula</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -595,8 +607,8 @@ export default function AAPRegistrarAcaoPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <StatusBadge variant={getTipoVariant(prog.tipo) as 'primary' | 'info' | 'warning' | 'default'}>
-                        {tipoAcaoLabels[prog.tipo] || prog.tipo}
+                      <StatusBadge variant={getTipoVariant(prog.tipo) as 'primary' | 'info' | 'warning' | 'success' | 'default'}>
+                        {getAcaoLabel(prog.tipo)}
                       </StatusBadge>
                       <span className="text-sm text-muted-foreground">
                         {segmentoLabels[prog.segmento as Segmento]}

@@ -160,7 +160,12 @@ export const anoSerieOptions = {
 export const tipoAcaoLabels: Record<string, string> = {
   formacao: 'Formação',
   visita: 'Visita',
-  acompanhamento_aula: 'Acompanhamento de Aula',
+  acompanhamento_aula: 'Observação de Aula',
+  observacao_aula: 'Observação de Aula',
+  devolutiva_pedagogica: 'Devolutiva Pedagógica',
+  autoavaliacao: 'Autoavaliação',
+  avaliacao_formacao_participante: 'Avaliação de Formação – Participante',
+  qualidade_atpcs: 'Qualidade de ATPCs',
 };
 
 export const notaAvaliacaoLabels: Record<number, string> = {

@@ -20,6 +20,7 @@ import ListaPresencaPage from "./pages/admin/ListaPresencaPage";
 import UsuariosPage from "./pages/admin/UsuariosPage";
 import NotionSyncPage from "./pages/admin/NotionSyncPage";
 import HistoricoPresencaPage from "./pages/admin/HistoricoPresencaPage";
+import MatrizAcoesPage from "./pages/admin/MatrizAcoesPage";
 import AAPRegistrarAcaoPage from "./pages/aap/AAPRegistrarAcaoPage";
 import NotFound from "./pages/NotFound";
 
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/notion-sync" element={<NotionSyncPage />} />
               <Route path="/lista-presenca" element={<ListaPresencaPage />} />
               <Route path="/historico-presenca" element={<HistoricoPresencaPage />} />
+              <Route path="/matriz-acoes" element={<MatrizAcoesPage />} />
               
               {/* AAP Routes */}
               <Route path="/aap/dashboard" element={<AdminDashboard />} />
