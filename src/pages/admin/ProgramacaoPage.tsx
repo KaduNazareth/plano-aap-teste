@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, CalendarPlus, Edit, Loader2, Upload, Trash2, Star, User, GraduationCap, Eye, ClipboardList } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels, cargoLabels } from '@/data/mockData';
-import { TipoAcao, StatusAcao, Segmento, ComponenteCurricular, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
+import { StatusAcao, Segmento, ComponenteCurricular, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
+import { getCreatableAcoes, ACAO_TYPE_INFO, AcaoTipo, getAcaoLabel } from '@/config/acaoPermissions';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -185,8 +186,13 @@ export default function ProgramacaoPage() {
   const [avancosFormacao, setAvancosFormacao] = useState('');
   const [dificuldadesFormacao, setDificuldadesFormacao] = useState('');
   
+  const creatableAcoes = useMemo(() => {
+    const role = profile?.role as import('@/contexts/AuthContext').AppRole | undefined;
+    return getCreatableAcoes(role);
+  }, [profile?.role]);
+
   const [formData, setFormData] = useState<{
-    tipo: TipoAcao;
+    tipo: string;
     titulo: string;
     descricao: string;
     data: string;
@@ -200,7 +206,7 @@ export default function ProgramacaoPage() {
     programa: ProgramaType[];
     tags: string;
   }>({
-    tipo: 'formacao' as TipoAcao,
+    tipo: creatableAcoes[0] || 'observacao_aula',
     titulo: '',
     descricao: '',
     data: '',
@@ -423,11 +429,11 @@ export default function ProgramacaoPage() {
     setIsSubmitting(true);
 
     try {
-      // Para visitas, usar valores padrão para campos não aplicáveis
-      const isVisita = formData.tipo === 'visita';
-      const segmentoValue = isVisita ? 'anos_iniciais' : formData.segmento;
-      const componenteValue = isVisita ? 'polivalente' : formData.componente;
-      const anoSerieValue = isVisita ? 'N/A' : formData.anoSerie;
+      // Tipos que não precisam de segmento/componente/ano_serie específico
+      const isFormacao = ['acompanhamento_formacoes', 'lista_presenca', 'participa_formacoes'].includes(formData.tipo);
+      const segmentoValue = formData.segmento;
+      const componenteValue = formData.componente;
+      const anoSerieValue = formData.anoSerie || (isFormacao ? 'todos' : '');
       
       // Inserir programação e obter o ID
       const tagsArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -473,7 +479,7 @@ export default function ProgramacaoPage() {
       toast.success('Ação programada com sucesso!');
       setIsDialogOpen(false);
       setFormData({
-        tipo: 'formacao',
+        tipo: creatableAcoes[0] || 'observacao_aula',
         titulo: '',
         descricao: '',
         data: '',
@@ -520,8 +526,8 @@ export default function ProgramacaoPage() {
       return;
     }
     
-    // Se for acompanhamento_aula e a ação foi realizada, abrir formulário de avaliação
-    if (selectedProgramacao.tipo === 'acompanhamento_aula' && acaoRealizada) {
+    // Se for observação de aula e a ação foi realizada, abrir formulário de avaliação
+    if ((selectedProgramacao.tipo === 'acompanhamento_aula' || selectedProgramacao.tipo === 'observacao_aula') && acaoRealizada) {
       setIsLoadingProfessores(true);
       try {
         // Buscar professores da mesma escola, segmento, ano/série e componente
@@ -565,7 +571,7 @@ export default function ProgramacaoPage() {
     }
     
     // Se for formação e a ação foi realizada, abrir formulário de presença
-    if (selectedProgramacao.tipo === 'formacao' && acaoRealizada) {
+    if (['formacao', 'acompanhamento_formacoes', 'lista_presenca', 'participa_formacoes'].includes(selectedProgramacao.tipo) && acaoRealizada) {
       setIsLoadingProfessores(true);
       try {
         // Buscar professores da mesma escola e componente, filtrando por segmento e ano/série se não for "todos"
@@ -1157,46 +1163,28 @@ export default function ProgramacaoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <label className="form-label">Tipo de Ação *</label>
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, tipo: 'formacao' })}
-                        className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1 text-sm",
-                          formData.tipo === 'formacao'
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border hover:border-muted-foreground"
-                        )}
-                      >
-                        <GraduationCap className="w-5 h-5" />
-                        Formação
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, tipo: 'visita' })}
-                        className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1 text-sm",
-                          formData.tipo === 'visita'
-                            ? "border-info bg-info/10 text-info"
-                            : "border-border hover:border-muted-foreground"
-                        )}
-                      >
-                        <Eye className="w-5 h-5" />
-                        Visita
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, tipo: 'acompanhamento_aula' })}
-                        className={cn(
-                          "flex-1 min-w-[100px] py-3 rounded-lg border-2 font-medium transition-all flex flex-col items-center gap-1 text-sm",
-                          formData.tipo === 'acompanhamento_aula'
-                            ? "border-warning bg-warning/10 text-warning"
-                            : "border-border hover:border-muted-foreground"
-                        )}
-                      >
-                        <ClipboardList className="w-5 h-5" />
-                        Acompanhamento de Aula
-                      </button>
+                    <div className="flex flex-wrap gap-2">
+                      {creatableAcoes.map(tipo => {
+                        const info = ACAO_TYPE_INFO[tipo];
+                        const Icon = info.icon;
+                        const isSelected = formData.tipo === tipo;
+                        return (
+                          <button
+                            key={tipo}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, tipo })}
+                            className={cn(
+                              "min-w-[120px] py-2 px-3 rounded-lg border-2 font-medium transition-all flex items-center gap-2 text-xs",
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border hover:border-muted-foreground"
+                            )}
+                          >
+                            <Icon className="w-4 h-4 shrink-0" />
+                            <span className="text-left leading-tight">{info.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                   
@@ -1349,7 +1337,9 @@ export default function ProgramacaoPage() {
                     </div>
                   )}
                   
-                  {formData.tipo !== 'visita' && (
+                  {(() => {
+                    const isFormacaoType = ['acompanhamento_formacoes', 'lista_presenca', 'participa_formacoes'].includes(formData.tipo);
+                    return (
                     <>
                       <div>
                         <label className="form-label">Segmento *</label>
@@ -1358,13 +1348,13 @@ export default function ProgramacaoPage() {
                           onChange={(e) => setFormData({ 
                             ...formData, 
                             segmento: e.target.value as Segmento,
-                            anoSerie: formData.tipo === 'formacao' ? formData.anoSerie : ''
+                            anoSerie: isFormacaoType ? formData.anoSerie : ''
                           })}
                           className="input-field"
-                          required={formData.tipo !== 'formacao'}
+                          required={!isFormacaoType}
                           disabled={isAAP && getAAPSegmentoComponente(profile?.role).segmentos.length === 1}
                         >
-                          {formData.tipo === 'formacao' && <option value="todos">Todos os Segmentos</option>}
+                          {isFormacaoType && <option value="todos">Todos os Segmentos</option>}
                           {(() => {
                             const allowedSegmentos = isAAP 
                               ? getAAPSegmentoComponente(profile?.role).segmentos 
@@ -1402,14 +1392,14 @@ export default function ProgramacaoPage() {
                           value={formData.anoSerie}
                           onChange={(e) => setFormData({ ...formData, anoSerie: e.target.value })}
                           className="input-field"
-                          required={formData.tipo !== 'formacao'}
+                          required={!isFormacaoType}
                         >
                           <option value="">Selecione</option>
-                          {formData.tipo === 'formacao' && <option value="todos">Todos os Anos/Séries</option>}
+                          {isFormacaoType && <option value="todos">Todos os Anos/Séries</option>}
                           {formData.segmento !== 'todos' && anoSerieOptions[formData.segmento]?.map(ano => (
                             <option key={ano} value={ano}>{ano}</option>
                           ))}
-                          {formData.segmento === 'todos' && formData.tipo === 'formacao' && (
+                          {formData.segmento === 'todos' && isFormacaoType && (
                             Object.values(anoSerieOptions).flat().filter((v, i, arr) => arr.indexOf(v) === i).map(ano => (
                               <option key={ano} value={ano}>{ano}</option>
                             ))
@@ -1417,7 +1407,8 @@ export default function ProgramacaoPage() {
                         </select>
                       </div>
                     </>
-                  )}
+                    );
+                  })()}
                 </div>
                 
                 <div className="flex gap-3 pt-4">
@@ -1495,10 +1486,10 @@ export default function ProgramacaoPage() {
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Tipo</SelectItem>
-              <SelectItem value="formacao">Formação</SelectItem>
-              <SelectItem value="visita">Visita</SelectItem>
-              <SelectItem value="acompanhamento_aula">Acompanhamento de Aula</SelectItem>
+              <SelectItem value="todos">Todos os Tipos</SelectItem>
+              {creatableAcoes.map(tipo => (
+                <SelectItem key={tipo} value={tipo}>{ACAO_TYPE_INFO[tipo].label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -1572,12 +1563,7 @@ export default function ProgramacaoPage() {
                         <div
                           key={event.id}
                           className={cn(
-                            "text-xs px-1.5 py-0.5 rounded truncate",
-                            event.tipo === 'formacao' 
-                              ? "bg-primary/20 text-primary" 
-                              : event.tipo === 'acompanhamento_aula'
-                              ? "bg-warning/20 text-warning"
-                              : "bg-info/20 text-info"
+                            "text-xs px-1.5 py-0.5 rounded truncate bg-primary/20 text-primary"
                           )}
                         >
                           {event.titulo}
@@ -1619,8 +1605,8 @@ export default function ProgramacaoPage() {
                     >
                       <div className="flex items-start justify-between">
                         <h4 className="font-medium text-foreground">{event.titulo}</h4>
-                        <StatusBadge variant={event.tipo === 'formacao' ? 'primary' : event.tipo === 'acompanhamento_aula' ? 'warning' : 'info'}>
-                          {tipoAcaoLabels[event.tipo] || event.tipo}
+                        <StatusBadge variant="primary">
+                          {getAcaoLabel(event.tipo)}
                         </StatusBadge>
                       </div>
                       <div className="space-y-1 text-sm text-muted-foreground">
@@ -1724,8 +1710,8 @@ export default function ProgramacaoPage() {
                         {format(parseISO(prog.data), "dd/MM/yyyy", { locale: ptBR })}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge variant={prog.tipo === 'formacao' ? 'primary' : prog.tipo === 'acompanhamento_aula' ? 'warning' : 'info'}>
-                          {tipoAcaoLabels[prog.tipo] || prog.tipo}
+                        <StatusBadge variant="primary">
+                          {getAcaoLabel(prog.tipo)}
                         </StatusBadge>
                       </td>
                       <td className="px-4 py-3 text-sm font-medium">{prog.titulo}</td>
@@ -1785,8 +1771,8 @@ export default function ProgramacaoPage() {
             <div className="space-y-6 mt-4">
               <div className="p-4 rounded-xl bg-muted/50 space-y-2">
                 <div className="flex items-center gap-2">
-                  <StatusBadge variant={selectedProgramacao.tipo === 'formacao' ? 'primary' : selectedProgramacao.tipo === 'acompanhamento_aula' ? 'warning' : 'info'}>
-                    {tipoAcaoLabels[selectedProgramacao.tipo] || selectedProgramacao.tipo}
+                  <StatusBadge variant="primary">
+                    {getAcaoLabel(selectedProgramacao.tipo)}
                   </StatusBadge>
                   <span className="font-medium">{selectedProgramacao.titulo}</span>
                 </div>
