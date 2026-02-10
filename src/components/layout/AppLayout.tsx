@@ -9,7 +9,7 @@ const ALLOWED_ROUTES: Record<RoleTier, string[]> = {
   manager: [
     '/dashboard', '/perfil', '/escolas', '/professores', '/aaps',
     '/programacao', '/registros', '/evolucao-professor', '/relatorios',
-    '/lista-presenca', '/historico-presenca',
+    '/lista-presenca', '/historico-presenca', '/pendencias',
   ],
   operational: [
     '/perfil', '/aap/dashboard', '/aap/calendario', '/aap/registrar',

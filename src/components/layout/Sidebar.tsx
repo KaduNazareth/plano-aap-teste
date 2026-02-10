@@ -2,11 +2,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, School, Users, UserCheck, Calendar, ClipboardList, 
   BarChart3, LogOut, Menu, X, GraduationCap, FileText, UserCog, 
-  TrendingUp, Printer, Link2, History, Grid3X3, SlidersHorizontal
+  TrendingUp, Printer, Link2, History, Grid3X3, SlidersHorizontal, AlertTriangle
 } from 'lucide-react';
 import { useAuth, RoleTier } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useState, createContext, useContext, ReactNode } from 'react';
+import { usePendencias } from '@/hooks/usePendencias';
 
 interface SidebarContextType {
   isOpen: boolean;
@@ -38,6 +39,7 @@ const adminMenuItems: MenuItem[] = [
   { icon: Link2, label: 'Integração Notion', path: '/notion-sync' },
   { icon: Grid3X3, label: 'Matriz de Ações', path: '/matriz-acoes' },
   { icon: SlidersHorizontal, label: 'Configurar Formulário', path: '/admin/configurar-formulario' },
+  { icon: AlertTriangle, label: 'Pendências', path: '/pendencias' },
 ];
 
 // N2 Gestor / N3 Coordenador do Programa - manage within programs
@@ -52,6 +54,7 @@ const managerMenuItems: MenuItem[] = [
   { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
   { icon: Printer, label: 'Lista de Presença', path: '/lista-presenca' },
   { icon: History, label: 'Histórico Presença', path: '/historico-presenca' },
+  { icon: AlertTriangle, label: 'Pendências', path: '/pendencias' },
 ];
 
 // N4.1 CPed / N4.2 GPI / N5 Formador - operational within entities
@@ -120,6 +123,7 @@ function SidebarContent() {
   const { profile, logout, isAdmin, roleTier } = useAuth();
   const location = useLocation();
   const { isOpen, setIsOpen } = useSidebarState();
+  const { count: pendenciasCount } = usePendencias();
   
   const menuItems = getMenuItems(roleTier, isAdmin);
 
@@ -202,6 +206,11 @@ function SidebarContent() {
               >
                 <item.icon size={20} />
                 <span>{item.label}</span>
+                {item.path === '/pendencias' && pendenciasCount > 0 && (
+                  <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full px-2 py-0.5 font-semibold">
+                    {pendenciasCount}
+                  </span>
+                )}
               </Link>
             );
           })}
