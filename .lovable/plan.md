@@ -1,75 +1,120 @@
 
 
-# Adicionar campo "Tags" sincronizado com "Tag do Projeto" do Notion
+# Horas de Formacao, Historico de Presenca e Correcao do PDF
 
 ## Resumo
 
-Adicionar um campo `tags` (array de texto) nas tabelas `programacoes` e `registros_acao`, exibi-lo nos formularios de criacao/edicao de acoes, e sincronizar com o campo "Tag do Projeto" do Notion em ambas as direcoes.
+Quatro funcionalidades:
+1. Contabilizar horas de formacao (diferenca entre horario_inicio e horario_fim)
+2. Nova pagina "Historico de Presenca" com acumulado por formacao e por professor, mostrando % presenca e horas
+3. Presenca do professor so conta no periodo em que ele estiver "ativo" (usando `created_at` e `data_desativacao`)
+4. Correcao do PDF da lista de presenca com cabecalho repetido por pagina e contagem de paginas
 
 ---
 
-## 1. Migracao SQL
+## 1. Funcao de calculo de horas
 
-Adicionar coluna `tags` em ambas as tabelas:
+Criar uma funcao utilitaria `calcularHorasFormacao(horario_inicio: string, horario_fim: string): number` que retorna a duracao em horas (decimal).
 
-- `programacoes`: coluna `tags` tipo `text[]`, nullable, default `NULL`
-- `registros_acao`: coluna `tags` tipo `text[]`, nullable, default `NULL`
+Exemplo: "08:00" a "11:30" = 3.5 horas.
 
-## 2. Sincronizacao Notion para Lovable
+Sera reutilizada em toda a aplicacao.
 
-### Arquivo: `supabase/functions/notion-sync/index.ts`
+**Arquivo**: `src/lib/utils.ts` (adicionar funcao)
 
-- Extrair o campo "Tag do Projeto" da pagina do Notion (provavelmente `select` ou `multi_select`)
-- Se for `select`: extrair o valor unico como array de 1 elemento
-- Se for `multi_select`: extrair todos os valores como array
-- Incluir o valor no `commonData` como `tags`
-- O campo sera salvo tanto em `programacoes` quanto em `registros_acao`
+---
 
-Trecho a adicionar na extracao de propriedades:
+## 2. Nova pagina: Historico de Presenca
+
+### Menu
+Adicionar item "Historico Presenca" no menu lateral (Sidebar.tsx) para admin, gestor e AAP, utilizando um icone como `ClipboardCheck` ou `History`.
+
+**Rota**: `/historico-presenca`
+
+### Funcionalidade da pagina
+
+A pagina tera duas abas (tabs):
+
+**Aba 1 - Por Formacao:**
+- Lista todas as formacoes realizadas (`programacoes` com `tipo='formacao'` e `status='realizada'`)
+- Para cada formacao: titulo, data, escola, horas (calculadas), total participantes, presentes, % presenca
+- Filtros: escola, periodo, componente, segmento
+
+**Aba 2 - Por Professor (Ator):**
+- Lista todos os professores
+- Para cada professor: nome, escola, total de formacoes elegiveis (no periodo ativo), presencas, % presenca, total de horas acumuladas
+- Filtros: escola, periodo, componente, segmento
+
+### Logica de "periodo ativo"
+
+A presenca de um professor so conta se a data da formacao estiver dentro do seu periodo ativo:
+- Inicio: `professores.created_at`
+- Fim: `professores.data_desativacao` (se null, professor esta ativo ate hoje)
+
 ```text
-const tagDoProjetoNotion = props['Tag do Projeto'];
-let tags: string[] = [];
-if (tagDoProjetoNotion?.type === 'multi_select') {
-  tags = tagDoProjetoNotion.multi_select?.map(t => t.name) || [];
-} else if (tagDoProjetoNotion?.type === 'select' && tagDoProjetoNotion.select) {
-  tags = [tagDoProjetoNotion.select.name];
-}
+formacao.data >= professor.created_at
+AND (professor.data_desativacao IS NULL OR formacao.data <= professor.data_desativacao)
 ```
 
-Incluir `tags` no objeto `commonData`.
+Isso sera aplicado tanto na contagem de presenca quanto no calculo de formacoes elegiveis por professor.
 
-## 3. Sincronizacao Lovable para Notion
+### Dados necessarios (queries)
 
-### Arquivo: `supabase/functions/notion-create-page/index.ts` (nova funcao, do plano anterior)
+1. Buscar programacoes realizadas do tipo formacao
+2. Buscar registros_acao correspondentes (via programacao_id)
+3. Buscar presencas vinculadas aos registros
+4. Buscar professores com `created_at` e `data_desativacao`
+5. Cruzar: para cada professor, filtrar formacoes onde ele estava ativo, verificar presenca
 
-Ao criar a pagina no Notion, mapear o campo `tags` do sistema para a propriedade "Tag do Projeto" no Notion:
-- Se o campo "Tag do Projeto" for `multi_select`: enviar todos os valores
-- Se for `select`: enviar o primeiro valor do array
+**Arquivo novo**: `src/pages/admin/HistoricoPresencaPage.tsx`
 
-## 4. Frontend - Formulario de criacao
+---
 
-### Arquivo: `src/pages/admin/ProgramacaoPage.tsx`
+## 3. Correcao do PDF da Lista de Presenca
 
-- Adicionar campo `tags` ao estado `formData` (tipo `string[]`, default `[]`)
-- Adicionar input no formulario de criacao para inserir tags (campo de texto com separacao por virgula, ou input de chips)
-- Incluir `tags` no insert do banco ao criar programacao
-- Exibir tags na visualizacao da programacao (badges/chips)
+### Problemas atuais
+- Cabecalho nao repete em cada pagina
+- Nao ha contagem de paginas
+- Layout nao utiliza o cabecalho padrao da aplicacao
 
-### Arquivo: `src/pages/aap/AAPRegistrarAcaoPage.tsx`
+### Solucao
 
-- Propagar as tags da programacao para o registro de acao ao registrar
-- Exibir tags na visualizacao
+Reescrever `ListaPresencaPrint.tsx` utilizando CSS de impressao adequado:
 
-## 5. Interfaces TypeScript
+**Cabecalho repetido em cada pagina:**
+- Usar `<thead>` da tabela com `display: table-header-group` (CSS nativo para repeticao de cabecalho em impressao)
+- Mover as informacoes da formacao (titulo, data, hora, programa, formador, escola) para dentro do `<thead>` como linhas de cabecalho
 
-### Arquivo: `src/types/index.ts`
+**Contagem de paginas:**
+- Usar CSS `@page` com `counter` para paginas:
+```text
+@page {
+  @bottom-right {
+    content: "Pagina " counter(page) " de " counter(pages);
+  }
+}
+```
+- Como fallback (nem todos os navegadores suportam), adicionar via CSS `position: fixed` no rodape
 
-- Adicionar `tags?: string[]` na interface `Programacao`
-- Adicionar `tags?: string[]` na interface `RegistroAcao`
+**Conteudo do cabecalho:**
+- Nome da formacao
+- Programa
+- Data e horario
+- Escola
+- Formador
+- Segmento e componente
 
-### Interfaces locais em `ProgramacaoPage.tsx` e `AAPRegistrarAcaoPage.tsx`
+**Layout A4:**
+- Manter `@page { size: A4; margin: 15mm; }`
+- Tabela com bordas pretas, linhas com altura minima de 10mm para assinaturas
 
-- Adicionar `tags: string[] | null` no `ProgramacaoDB`
+**Arquivo**: `src/components/presenca/ListaPresencaPrint.tsx` (reescrever)
+
+---
+
+## 4. Roteamento
+
+Adicionar rota `/historico-presenca` no `App.tsx`.
 
 ---
 
@@ -77,9 +122,51 @@ Ao criar a pagina no Notion, mapear o campo `tags` do sistema para a propriedade
 
 | Arquivo | Acao |
 |---|---|
-| Migracao SQL | Adicionar coluna `tags` em `programacoes` e `registros_acao` |
-| `supabase/functions/notion-sync/index.ts` | Extrair "Tag do Projeto" e incluir em `commonData.tags` |
-| `supabase/functions/notion-create-page/index.ts` | Mapear `tags` para "Tag do Projeto" no Notion (parte do plano anterior) |
-| `src/pages/admin/ProgramacaoPage.tsx` | Adicionar campo tags no formulario e na visualizacao |
-| `src/pages/aap/AAPRegistrarAcaoPage.tsx` | Exibir tags e propagar para registro |
-| `src/types/index.ts` | Adicionar campo `tags` nas interfaces |
+| `src/lib/utils.ts` | Adicionar `calcularHorasFormacao()` |
+| `src/pages/admin/HistoricoPresencaPage.tsx` | CRIAR - nova pagina |
+| `src/components/layout/Sidebar.tsx` | Adicionar menu "Historico Presenca" |
+| `src/App.tsx` | Adicionar rota `/historico-presenca` |
+| `src/components/presenca/ListaPresencaPrint.tsx` | Reescrever com cabecalho repetido e paginacao |
+
+Nenhuma migracao SQL necessaria - todos os dados ja existem nas tabelas (`programacoes`, `registros_acao`, `presencas`, `professores`).
+
+---
+
+## Detalhes tecnicos
+
+### Calculo de horas
+```text
+function calcularHorasFormacao(inicio: string, fim: string): number {
+  const [hi, mi] = inicio.split(':').map(Number);
+  const [hf, mf] = fim.split(':').map(Number);
+  return (hf * 60 + mf - hi * 60 - mi) / 60;
+}
+```
+
+### Filtro de periodo ativo do professor
+```text
+const professorAtivoNaFormacao = (professor, formacaoData) => {
+  const dataFormacao = new Date(formacaoData);
+  const createdAt = new Date(professor.created_at);
+  if (dataFormacao < createdAt) return false;
+  if (professor.data_desativacao) {
+    const desativacao = new Date(professor.data_desativacao);
+    if (dataFormacao > desativacao) return false;
+  }
+  return true;
+};
+```
+
+### Estrutura da aba "Por Professor"
+Cada linha exibe:
+- Nome do professor
+- Escola
+- Status (ativo/inativo)
+- Formacoes elegiveis (quantidade no periodo ativo)
+- Presencas registradas
+- % presenca (presencas / elegiveis * 100)
+- Horas acumuladas (soma das horas das formacoes em que esteve presente)
+
+### CSS de impressao para paginacao
+O cabecalho da formacao sera incluido como parte do `<thead>` da tabela principal, garantindo repeticao automatica pelo navegador em cada pagina. O rodape com numero de pagina sera via `@page` CSS ou `position: fixed` como fallback.
+
