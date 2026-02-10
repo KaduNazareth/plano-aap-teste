@@ -3,11 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { segmentoLabels, componenteLabels, cargoLabels, tipoAcaoLabels } from '@/data/mockData';
 import { getCreatableAcoes, getAcaoLabel, normalizeAcaoTipo, ACAO_TYPE_INFO } from '@/config/acaoPermissions';
-import { NotaAvaliacao, notaAvaliacaoLabels, Segmento, ComponenteCurricular } from '@/types';
-import { useFormFieldConfig, OBSERVACAO_AULA_FIELDS } from '@/hooks/useFormFieldConfig';
+import { Segmento, ComponenteCurricular } from '@/types';
+import { useFormFieldConfig } from '@/hooks/useFormFieldConfig';
 import { QuestionSelectionStep, QuestionItem } from '@/components/acompanhamento/QuestionSelectionStep';
 import { InstrumentForm } from '@/components/instruments/InstrumentForm';
-import { INSTRUMENT_FORM_TYPES } from '@/hooks/useInstrumentFields';
+import { useInstrumentFields, INSTRUMENT_FORM_TYPES } from '@/hooks/useInstrumentFields';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -20,9 +20,8 @@ import {
   FileText, 
   TrendingUp, 
   AlertCircle,
-  ChevronRight,
   CheckCircle2,
-  Star,
+  ChevronRight,
   ClipboardCheck,
   CalendarPlus,
   XCircle,
@@ -48,16 +47,6 @@ type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
 interface PresencaItem {
   professorId: string;
   presente: boolean;
-}
-
-interface AvaliacaoAulaItem {
-  professorId: string;
-  clareza_objetivos: NotaAvaliacao;
-  dominio_conteudo: NotaAvaliacao;
-  estrategias_didaticas: NotaAvaliacao;
-  engajamento_turma: NotaAvaliacao;
-  gestao_tempo: NotaAvaliacao;
-  observacoes: string;
 }
 
 interface Escola {
@@ -93,22 +82,6 @@ interface ProgramacaoDB {
   tags: string[] | null;
 }
 
-const dimensoesAvaliacao = [
-  { key: 'clareza_objetivos', label: 'Intencionalidade pedagógica', description: 'Objetivo de aprendizagem claro e comunicado aos estudantes, Alinhamento ao currículo/habilidades' },
-  { key: 'dominio_conteudo', label: 'Estratégias didáticas', description: 'Estratégias adequadas ao objetivo da aula, Uso de metodologias que favorecem a aprendizagem' },
-  { key: 'estrategias_didaticas', label: 'Mediação docente', description: 'Intervenções que apoiam a compreensão, Questionamentos que promovem reflexão' },
-  { key: 'engajamento_turma', label: 'Engajamento dos estudantes', description: 'Participação ativa da maioria da turma, Clima favorável à aprendizagem' },
-  { key: 'gestao_tempo', label: 'Avaliação durante a aula', description: 'Verificação de compreensão, Ajustes pedagógicos a partir das respostas dos estudantes' },
-] as const;
-
-const pontuacaoLegenda = [
-  { nota: 1, titulo: 'Não observado', descricao: 'Não há evidências do critério avaliado.' },
-  { nota: 2, titulo: 'Inicial', descricao: 'Há indícios pontuais ou informais, ainda pouco estruturados ou inconsistentes.' },
-  { nota: 3, titulo: 'Parcial', descricao: 'O critério é atendido em parte, com aplicação irregular ou dependente de pessoas específicas.' },
-  { nota: 4, titulo: 'Adequado', descricao: 'O critério está implementado de forma estruturada e atende ao esperado, com regularidade.' },
-  { nota: 5, titulo: 'Consistente', descricao: 'O critério está plenamente incorporado à prática, é sustentável ao longo do tempo e apresenta evidências claras e recorrentes.' },
-];
-
 const INSTRUMENT_TYPE_SET = new Set<string>(INSTRUMENT_FORM_TYPES.map(t => t.value));
 const PRESENCE_TYPES = new Set(['formacao', 'lista_presenca', 'acompanhamento_formacoes']);
 
@@ -116,9 +89,10 @@ export default function AAPRegistrarAcaoPage() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { isFieldEnabled, isFieldRequired, isLoading: isConfigLoading, minOptionalQuestions } = useFormFieldConfig('observacao_aula');
+  const { fields: obsAulaFields, isLoading: isFieldsLoading } = useInstrumentFields('observacao_aula');
   const [selectedProgramacao, setSelectedProgramacao] = useState<ProgramacaoDB | null>(null);
   const [presencaList, setPresencaList] = useState<PresencaItem[]>([]);
-  const [avaliacaoList, setAvaliacaoList] = useState<AvaliacaoAulaItem[]>([]);
+  const [perProfessorResponses, setPerProfessorResponses] = useState<Record<string, Record<string, any>>>({});
   const [selectedProfessorAvaliacao, setSelectedProfessorAvaliacao] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState('');
   const [avancos, setAvancos] = useState('');
@@ -286,34 +260,28 @@ export default function AAPRegistrarAcaoPage() {
     const isAcomp = prog.tipo === 'acompanhamento_aula' || prog.tipo === 'observacao_aula';
     
     if (isAcomp) {
-      // Initialize avaliação list
-      setAvaliacaoList(profs.map(p => ({
-        professorId: p.id,
-        clareza_objetivos: 3,
-        dominio_conteudo: 3,
-        estrategias_didaticas: 3,
-        engajamento_turma: 3,
-        gestao_tempo: 3,
-        observacoes: '',
-      })));
+      // Initialize per-professor responses map
+      const initialResponses: Record<string, Record<string, any>> = {};
+      profs.forEach(p => { initialResponses[p.id] = {}; });
+      setPerProfessorResponses(initialResponses);
       setPresencaList([]);
       
       // Open question selection step first
-      const requiredKeys = OBSERVACAO_AULA_FIELDS
-        .filter(f => isFieldEnabled(f.key) && isFieldRequired(f.key))
-        .map(f => f.key);
+      const requiredKeys = obsAulaFields
+        .filter(f => isFieldEnabled(f.field_key) && isFieldRequired(f.field_key))
+        .map(f => f.field_key);
       setSelectedQuestionKeys(requiredKeys);
       setQuestionSelectionDone(false);
       setShowQuestionSelection(true);
     } else if (PRESENCE_TYPES.has(prog.tipo)) {
       // Initialize presence list with all professors as absent
       setPresencaList(profs.map(p => ({ professorId: p.id, presente: false })));
-      setAvaliacaoList([]);
+      setPerProfessorResponses({});
       setQuestionSelectionDone(false);
     } else {
       // Instrument type or basic type — no presence/avaliacao needed
       setPresencaList([]);
-      setAvaliacaoList([]);
+      setPerProfessorResponses({});
       setQuestionSelectionDone(false);
     }
     
@@ -337,14 +305,14 @@ export default function AAPRegistrarAcaoPage() {
   };
 
   const questionItems: QuestionItem[] = useMemo(() => 
-    OBSERVACAO_AULA_FIELDS.map(f => ({
-      key: f.key,
+    obsAulaFields.map(f => ({
+      key: f.field_key,
       label: f.label,
-      type: f.type,
-      required: isFieldRequired(f.key),
-      enabled: isFieldEnabled(f.key),
+      type: f.field_type,
+      required: isFieldRequired(f.field_key),
+      enabled: isFieldEnabled(f.field_key),
     })),
-    [isFieldEnabled, isFieldRequired]
+    [obsAulaFields, isFieldEnabled, isFieldRequired]
   );
 
   const handleTogglePresenca = (professorId: string) => {
@@ -361,14 +329,11 @@ export default function AAPRegistrarAcaoPage() {
     setPresencaList(prev => prev.map(item => ({ ...item, presente })));
   };
 
-  const handleUpdateAvaliacao = (professorId: string, dimensao: keyof AvaliacaoAulaItem, valor: NotaAvaliacao | string) => {
-    setAvaliacaoList(prev =>
-      prev.map(item =>
-        item.professorId === professorId
-          ? { ...item, [dimensao]: valor }
-          : item
-      )
-    );
+  const handleProfessorResponseChange = (professorId: string, fieldKey: string, value: any) => {
+    setPerProfessorResponses(prev => ({
+      ...prev,
+      [professorId]: { ...(prev[professorId] || {}), [fieldKey]: value },
+    }));
   };
 
   const handleSubmit = async () => {
@@ -436,29 +401,26 @@ export default function AAPRegistrarAcaoPage() {
             obrigatoria: isFieldRequired(key),
           }));
 
-          // Save avaliacoes
-          const avaliacoesToInsert = avaliacaoList.map(av => ({
+          // Save to instrument_responses per professor
+          const professorIds = Object.keys(perProfessorResponses);
+          const responsesToInsert = professorIds.map(profId => ({
             registro_acao_id: registroData.id,
-            professor_id: av.professorId,
+            professor_id: profId,
             escola_id: selectedProgramacao.escola_id,
             aap_id: user!.id,
-            clareza_objetivos: selectedQuestionKeys.includes('clareza_objetivos') ? av.clareza_objetivos : 3,
-            dominio_conteudo: selectedQuestionKeys.includes('dominio_conteudo') ? av.dominio_conteudo : 3,
-            estrategias_didaticas: selectedQuestionKeys.includes('estrategias_didaticas') ? av.estrategias_didaticas : 3,
-            engajamento_turma: selectedQuestionKeys.includes('engajamento_turma') ? av.engajamento_turma : 3,
-            gestao_tempo: selectedQuestionKeys.includes('gestao_tempo') ? av.gestao_tempo : 3,
-            observacoes: selectedQuestionKeys.includes('observacoes_professor') ? (av.observacoes || null) : null,
+            form_type: 'observacao_aula',
+            responses: perProfessorResponses[profId] || {},
             questoes_selecionadas: questoesSelecionadas,
           }));
+
+          const { error: instrumentError } = await (supabase as any)
+            .from('instrument_responses')
+            .insert(responsesToInsert);
           
-          const { error: avaliacoesError } = await (supabase as unknown as { from: (table: string) => any })
-            .from('avaliacoes_aula')
-            .insert(avaliacoesToInsert);
-          
-          if (avaliacoesError) throw avaliacoesError;
+          if (instrumentError) throw instrumentError;
           
           toast.success('Avaliação de acompanhamento salva com sucesso!', {
-            description: `${avaliacaoList.length} professor(es)/coordenador(es) avaliado(s)`
+            description: `${professorIds.length} professor(es)/coordenador(es) avaliado(s)`
           });
         } else if (isPresenceType) {
           // Save presencas
@@ -548,7 +510,7 @@ export default function AAPRegistrarAcaoPage() {
       queryClient.invalidateQueries({ queryKey: ['programacoes'] });
       setSelectedProgramacao(null);
       setPresencaList([]);
-      setAvaliacaoList([]);
+      setPerProfessorResponses({});
       setInstrumentResponses({});
       setAcaoRealizada(null);
       setMotivoCancelamento('');
@@ -584,12 +546,10 @@ export default function AAPRegistrarAcaoPage() {
   const presentes = presencaList.filter(p => p.presente).length;
   const totalProfessores = presencaList.length;
 
-  const selectedProfessorData = selectedProfessorAvaliacao 
-    ? professores.find(p => p.id === selectedProfessorAvaliacao)
-    : null;
+  const professorIdsForEval = Object.keys(perProfessorResponses);
 
-  const selectedAvaliacaoData = selectedProfessorAvaliacao
-    ? avaliacaoList.find(a => a.professorId === selectedProfessorAvaliacao)
+  const selectedProfessorResponses = selectedProfessorAvaliacao
+    ? perProfessorResponses[selectedProfessorAvaliacao] || {}
     : null;
 
   if (isLoading) {
@@ -1074,20 +1034,20 @@ export default function AAPRegistrarAcaoPage() {
                   <div>
                     <h4 className="font-medium mb-3 flex items-center gap-2">
                       <Users size={18} className="text-primary" />
-                      Professores/Coordenadores ({avaliacaoList.length})
+                      Professores/Coordenadores ({professorIdsForEval.length})
                     </h4>
                     <div className="border border-border rounded-lg divide-y divide-border max-h-80 overflow-y-auto">
                       {availableProfessors.length === 0 ? (
                         <p className="p-4 text-center text-muted-foreground">Nenhum professor encontrado</p>
                       ) : (
-                        avaliacaoList.map(item => {
-                          const professor = professores.find(p => p.id === item.professorId);
-                          const isSelected = selectedProfessorAvaliacao === item.professorId;
+                        professorIdsForEval.map(profId => {
+                          const professor = professores.find(p => p.id === profId);
+                          const isSelected = selectedProfessorAvaliacao === profId;
                           
                           return (
                             <button
-                              key={item.professorId}
-                              onClick={() => setSelectedProfessorAvaliacao(item.professorId)}
+                              key={profId}
+                              onClick={() => setSelectedProfessorAvaliacao(profId)}
                               className={`w-full flex items-center justify-between p-3 text-left transition-colors ${
                                 isSelected ? 'bg-primary/10' : 'hover:bg-muted/30'
                               }`}
@@ -1106,76 +1066,26 @@ export default function AAPRegistrarAcaoPage() {
                     </div>
                   </div>
 
-                  {/* Evaluation Form */}
+                  {/* Evaluation Form — now uses InstrumentForm */}
                   <div>
-                    {selectedProfessorData && selectedAvaliacaoData ? (
+                    {selectedProfessorAvaliacao && selectedProfessorResponses ? (
                       <div className="space-y-4">
                         <div className="p-3 bg-muted/50 rounded-lg">
-                          <h4 className="font-medium">{selectedProfessorData.nome}</h4>
+                          <h4 className="font-medium">{professores.find(p => p.id === selectedProfessorAvaliacao)?.nome}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {cargoLabels[selectedProfessorData.cargo] || selectedProfessorData.cargo} - {componenteLabels[selectedProfessorData.componente as ComponenteCurricular] || selectedProfessorData.componente}
+                            {(() => {
+                              const prof = professores.find(p => p.id === selectedProfessorAvaliacao);
+                              return prof ? `${cargoLabels[prof.cargo] || prof.cargo} - ${componenteLabels[prof.componente as ComponenteCurricular] || prof.componente}` : '';
+                            })()}
                           </p>
                         </div>
 
-                        {/* Legenda de Pontuação */}
-                        <div className="p-3 bg-muted/30 rounded-lg border border-border">
-                          <h5 className="font-semibold text-sm mb-2">Pontuação:</h5>
-                          <div className="space-y-1">
-                            {pontuacaoLegenda.map(item => (
-                              <div key={item.nota} className="flex items-start gap-1">
-                                <span className="font-bold text-sm">{item.nota} = {item.titulo}</span>
-                                <span className="text-[11px] text-muted-foreground">({item.descricao})</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="border-t border-border pt-4">
-                          <h5 className="font-semibold text-sm mb-3">Itens observados:</h5>
-                          {dimensoesAvaliacao.filter(d => selectedQuestionKeys.includes(d.key)).map(dimensao => (
-                            <div key={dimensao.key} className="space-y-2 mb-4">
-                              <div>
-                                <label className="block text-sm font-medium">
-                                  {dimensao.label}
-                                  {isFieldRequired(dimensao.key) && <span className="text-destructive ml-1">*</span>}
-                                </label>
-                                <span className="text-[11px] text-muted-foreground">({dimensao.description})</span>
-                              </div>
-                              <div className="flex gap-2">
-                                {([1, 2, 3, 4, 5] as NotaAvaliacao[]).map(nota => (
-                                  <button
-                                    key={nota}
-                                    type="button"
-                                    onClick={() => handleUpdateAvaliacao(selectedProfessorAvaliacao!, dimensao.key, nota)}
-                                    className={`flex-1 py-2 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-1 ${
-                                      selectedAvaliacaoData[dimensao.key] === nota
-                                        ? 'border-warning bg-warning/20 text-warning'
-                                        : 'border-border hover:border-muted-foreground'
-                                    }`}
-                                  >
-                                    <Star size={14} className={selectedAvaliacaoData[dimensao.key] >= nota ? 'fill-current' : ''} />
-                                    {nota}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {selectedQuestionKeys.includes('observacoes_professor') && (
-                        <div>
-                          <label className="block text-sm font-medium mb-2">
-                            Observações
-                            {isFieldRequired('observacoes_professor') && <span className="text-destructive ml-1">*</span>}
-                          </label>
-                          <Textarea
-                            value={selectedAvaliacaoData.observacoes}
-                            onChange={(e) => handleUpdateAvaliacao(selectedProfessorAvaliacao!, 'observacoes', e.target.value)}
-                            placeholder="Observações sobre este professor..."
-                            rows={3}
-                          />
-                        </div>
-                        )}
+                        <InstrumentForm
+                          formType="observacao_aula"
+                          responses={selectedProfessorResponses}
+                          onResponseChange={(fieldKey, value) => handleProfessorResponseChange(selectedProfessorAvaliacao, fieldKey, value)}
+                          selectedKeys={selectedQuestionKeys}
+                        />
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full text-muted-foreground">
