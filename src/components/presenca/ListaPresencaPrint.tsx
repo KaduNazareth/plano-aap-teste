@@ -153,7 +153,7 @@ export const ListaPresencaPrint = forwardRef<HTMLDivElement, ListaPresencaPrintP
           @media print {
             @page {
               size: A4;
-              margin: 15mm;
+              margin: 10mm 15mm 15mm 15mm;
               @bottom-center {
                 content: "Página " counter(page) " de " counter(pages);
                 font-size: 9px;
@@ -164,10 +164,18 @@ export const ListaPresencaPrint = forwardRef<HTMLDivElement, ListaPresencaPrintP
             body {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              background: white !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            html {
+              background: white !important;
             }
 
             .print-container, .print\\:block {
               display: block !important;
+              background: white !important;
             }
 
             .print\\:hidden {
@@ -179,7 +187,7 @@ export const ListaPresencaPrint = forwardRef<HTMLDivElement, ListaPresencaPrintP
               border-collapse: collapse;
               font-family: Arial, sans-serif;
               color: black;
-              background: white;
+              background: white !important;
             }
 
             .lista-presenca-table thead {
