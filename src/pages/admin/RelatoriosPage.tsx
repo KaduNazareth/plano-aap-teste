@@ -88,6 +88,7 @@ interface AvaliacaoAulaDB {
 interface Escola {
   id: string;
   nome: string;
+  programa: string[] | null;
 }
 
 interface Profile {
@@ -267,7 +268,7 @@ export default function RelatoriosPage() {
           supabase.from('registros_acao').select('id, tipo, data, escola_id, aap_id, segmento, componente, programa'),
           supabase.from('presencas').select('id, registro_acao_id, professor_id, presente'),
           supabase.from('avaliacoes_aula').select('id, registro_acao_id, professor_id, escola_id, aap_id, clareza_objetivos, dominio_conteudo, estrategias_didaticas, engajamento_turma, gestao_tempo'),
-          supabase.from('escolas').select('id, nome').eq('ativa', true).order('nome'),
+          supabase.from('escolas').select('id, nome, programa').eq('ativa', true).order('nome'),
           supabase.from('profiles').select('id, nome').order('nome'),
           supabase.from('professores').select('id', { count: 'exact' }).eq('ativo', true),
         ]);
@@ -436,11 +437,12 @@ export default function RelatoriosPage() {
   // Filter escolas based on program filter
   const filteredEscolas = programaFilter === 'todos' 
     ? escolas 
-    : escolas.filter(e => {
-        // Check if escola has programa array and includes the filter
-        const escolaData = escolas.find(escola => escola.id === e.id);
-        return escolaData;
-      });
+    : escolas.filter(e => e.programa?.includes(programaFilter));
+
+  // Dynamic title for attendance section based on programa filter
+  const presencaTitulo = programaFilter === 'todos'
+    ? 'Presença por Escola / Regional / Rede'
+    : `Presença por ${programaLabels[programaFilter] || 'Escola'}`;
 
   const presencaPorEscola = filteredEscolas.map(escola => {
     const escolaRegistros = filteredRegistros.filter(r => r.escola_id === escola.id);
@@ -1166,7 +1168,7 @@ export default function RelatoriosPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
               {/* Presence by School - Extended Table (2 modules height) */}
               <div className="bg-card rounded-xl border border-border p-6 lg:row-span-2">
-                <h3 className="card-title mb-2">Presença por Escola</h3>
+                <h3 className="card-title mb-2">{presencaTitulo}</h3>
                 <div>
                   <table className="w-full text-[11px]">
                     <thead className="bg-muted sticky top-0">
