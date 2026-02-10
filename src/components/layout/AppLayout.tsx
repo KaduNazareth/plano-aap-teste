@@ -5,7 +5,7 @@ import { ForcePasswordChangeDialog } from '@/components/auth/ForcePasswordChange
 
 // Allowed routes per tier
 const ALLOWED_ROUTES: Record<RoleTier, string[]> = {
-  admin: [], // empty = allow all
+  admin: [], // empty = allow all (includes /matriz-acoes)
   manager: [
     '/dashboard', '/perfil', '/escolas', '/professores', '/aaps',
     '/programacao', '/registros', '/evolucao-professor', '/relatorios',

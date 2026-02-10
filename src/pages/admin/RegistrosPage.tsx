@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, tipoAcaoLabels, notaAvaliacaoLabels, cargoLabels } from '@/data/mockData';
+import { canUserEditAcao, canUserDeleteAcao, canUserViewAcao, getAcaoLabel, getViewableAcoes, ACAO_TYPE_INFO, normalizeAcaoTipo } from '@/config/acaoPermissions';
 import { Segmento, ComponenteCurricular, NotaAvaliacao } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -399,6 +400,13 @@ export default function RegistrosPage() {
   };
 
   const canEdit = (registro: RegistroAcaoDB) => {
+    if (!canUserEditAcao(profile?.role, registro.tipo)) return false;
+    if (isAdmin || isGestor) return true;
+    return registro.aap_id === user?.id;
+  };
+
+  const canDelete = (registro: RegistroAcaoDB) => {
+    if (!canUserDeleteAcao(profile?.role, registro.tipo)) return false;
     if (isAdmin || isGestor) return true;
     return registro.aap_id === user?.id;
   };

@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, School, Users, UserCheck, Calendar, ClipboardList, 
   BarChart3, LogOut, Menu, X, GraduationCap, FileText, UserCog, 
-  TrendingUp, Printer, Link2, History
+  TrendingUp, Printer, Link2, History, Grid3X3
 } from 'lucide-react';
 import { useAuth, RoleTier } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,7 @@ const adminMenuItems: MenuItem[] = [
   { icon: History, label: 'Histórico Presença', path: '/historico-presenca' },
   { icon: UserCog, label: 'Usuários', path: '/usuarios' },
   { icon: Link2, label: 'Integração Notion', path: '/notion-sync' },
+  { icon: Grid3X3, label: 'Matriz de Ações', path: '/matriz-acoes' },
 ];
 
 // N2 Gestor / N3 Coordenador do Programa - manage within programs
