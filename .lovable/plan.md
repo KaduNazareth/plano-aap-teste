@@ -1,106 +1,163 @@
 
 
-# Matriz de Acoes/Eventos por Perfil
+# Configuracao Dinamica de Campos -- Observacao de Aula
 
 ## Resumo
 
-Implementar um sistema centralizado de permissoes por tipo de acao e perfil (N1-N8), controlando quem pode criar, editar, excluir e visualizar cada tipo de acao. Inclui uma tela administrativa (N1) para visualizar a matriz carregada.
+Criar um sistema que permite ao Administrador (N1) ativar/desativar campos do formulario de Observacao de Aula por perfil (N1-N8). Campos desativados nao aparecem na UI, nao sao obrigatorios e sao rejeitados no backend.
 
-## Tipos de Acao (acao_tipo)
+## Modelo de Dados
 
-Os tipos de acao padronizados serao:
-- `observacao_aula` (Observacao de Aula) -- substitui `acompanhamento_aula`
-- `devolutiva_pedagogica` (Devolutiva Pedagogica) -- novo
-- `autoavaliacao` (Autoavaliacao) -- novo
-- `avaliacao_formacao_participante` (Avaliacao de Formacao - Participante) -- novo
-- `qualidade_atpcs` (Qualidade de ATPCs) -- novo
-- `formacao` (Formacao) -- existente
-- `visita` (Visita) -- existente
+Nova tabela `form_field_config`:
 
-## Matriz de Permissoes por Perfil
+```text
++------------------+----------+----------+---------+----------+------------+------------+
+| form_key (text)  | field_key| role     | enabled | required | updated_at | updated_by |
+|                  | (text)   | (app_role)| (bool) | (bool)   | (timestampz)| (uuid)    |
++------------------+----------+----------+---------+----------+------------+------------+
+| PK: (form_key, field_key, role)                                                       |
++------------------+----------+----------+---------+----------+------------+------------+
+```
 
-| Acao | N1 | N2/N3 | N4/N5 | N6 | N7 | N8 |
-|------|-----|-------|-------|-----|-----|-----|
-| Formacao | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
-| Visita | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
-| Observacao de Aula | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | CR(entidade) | CR(programa) |
-| Devolutiva Pedagogica | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
-| Autoavaliacao | CRUD | CRUD(programa) | - | CR(proprio) | - | - |
-| Aval. Formacao Participante | CRUD | CRUD(programa) | - | CR(proprio) | CR(proprio) | - |
-| Qualidade ATPCs | CRUD | CRUD(programa) | CRUD(entidade) | View(entidade) | - | View(programa) |
+- `form_key`: sempre `'observacao_aula'` por enquanto (extensivel para outros formularios)
+- `field_key`: identificador do campo, ex: `clareza_objetivos`, `dominio_conteudo`, `estrategias_didaticas`, `engajamento_turma`, `gestao_tempo`, `observacoes_professor`, `observacoes_gerais`, `avancos`, `dificuldades`, `turma`
+- `role`: um dos valores de `app_role` (admin, gestor, n3_coordenador_programa, etc.)
+- `enabled`: se o campo aparece para esse perfil (default: true)
+- `required`: se o campo e obrigatorio para esse perfil (default: false)
+- RLS: somente N1 pode INSERT/UPDATE/DELETE; todos autenticados podem SELECT
+
+Migracao incluira seed com todos os campos habilitados para todos os perfis que tem acesso a Observacao de Aula.
+
+## Campos do Formulario Observacao de Aula
+
+| field_key | Label | Tipo |
+|-----------|-------|------|
+| clareza_objetivos | Intencionalidade Pedagogica | Rating 1-5 |
+| dominio_conteudo | Estrategias Didaticas | Rating 1-5 |
+| estrategias_didaticas | Mediacao Docente | Rating 1-5 |
+| engajamento_turma | Engajamento dos Estudantes | Rating 1-5 |
+| gestao_tempo | Avaliacao durante a Aula | Rating 1-5 |
+| observacoes_professor | Observacoes (por professor) | Texto |
+| observacoes_gerais | Observacoes Gerais da Visita | Texto |
+| avancos | Avancos Identificados | Texto |
+| dificuldades | Dificuldades Encontradas | Texto |
+| turma | Turma | Texto |
 
 ## Etapas de Implementacao
 
-### 1. Definicao da Matriz no Frontend (configuracao central)
+### 1. Migracao de Banco de Dados
 
-Criar `src/config/acaoPermissions.ts` com:
-- Constante `ACAO_TYPES` definindo todos os tipos de acao com label e icone
-- Constante `ACAO_PERMISSION_MATRIX` mapeando cada role a cada acao_tipo com flags: `canCreate`, `canEdit`, `canDelete`, `canView`, e `viewScope` (proprio / entidade / programa / all)
-- Funcoes auxiliares: `canUserCreateAcao(role, acaoTipo)`, `canUserViewAcao(role, acaoTipo)`, `getAcoesForRole(role)`, `getPermissionsForAcao(role, acaoTipo)`
+- Criar tabela `form_field_config` com PK composta (form_key, field_key, role)
+- RLS: SELECT para todos autenticados; ALL para is_admin
+- Seed inicial: inserir linhas para cada combinacao de field_key x role (somente roles com acesso a observacao_aula: admin, gestor, n3, n4_1, n4_2, n5, n6, n7, n8), todos com enabled=true, required=false
 
-### 2. Migracao de Banco de Dados
+### 2. Hook de Dados -- `useFormFieldConfig`
 
-- Criar enum `acao_tipo` ou usar text com check constraint para padronizar os tipos
-- Adicionar alias de compatibilidade: `acompanhamento_aula` mapeia para `observacao_aula`
-- Nenhuma nova tabela e necessaria -- a matriz fica no frontend como configuracao estatica; o backend valida via RLS + edge function
+Criar `src/hooks/useFormFieldConfig.ts`:
+- Busca `form_field_config` filtrado por `form_key` e `role` do usuario logado
+- Cache via React Query com chave `['form_field_config', formKey, role]`
+- Exporta funcoes auxiliares: `isFieldEnabled(fieldKey)`, `isFieldRequired(fieldKey)`
+- Retorna mapa `Record<string, { enabled: boolean; required: boolean }>`
 
-### 3. Atualizacao da UI -- Menu e Telas de Criacao
+### 3. Atualizar Formulario de Observacao de Aula
 
-- **Sidebar**: nenhuma mudanca estrutural, pois ja usa tier-based menus
-- **AAPRegistrarAcaoPage**: filtrar `tipoAcaoLabels` usando `getAcoesForRole(profile.role)` para mostrar apenas tipos permitidos
-- **RegistrosPage**: filtrar acoes visiveis e botoes de editar/excluir usando a matriz
-- **ProgramacaoPage**: na criacao de programacao, filtrar tipos de acao disponiveis pelo perfil
+Em `AAPRegistrarAcaoPage.tsx`:
+- Importar `useFormFieldConfig('observacao_aula')`
+- Envolver cada campo com condicional `isFieldEnabled('field_key')`
+- Nas dimensoes de avaliacao, filtrar `dimensoesAvaliacao` para mostrar somente as habilitadas
+- No `handleSubmit`, antes de inserir em `avaliacoes_aula`, remover campos desabilitados do payload
+- Campos desabilitados recebem valor default (3 para ratings, null para texto) para nao quebrar a estrutura da tabela `avaliacoes_aula`
 
-### 4. Validacao no Backend
+### 4. Tela Admin -- Configurar Formulario
 
-- Atualizar a edge function `manage-users` ou criar uma nova funcao `validate-acao-permission` que verifica a matriz antes de salvar
-- Alternativamente, validar inline no frontend antes do insert e confiar nas RLS existentes para escopo (as RLS ja controlam programa/entidade)
-- Para N6 e N7 criando registros (observacao_aula, autoavaliacao, avaliacao_formacao_participante), sera necessario adicionar RLS INSERT policies para `is_local_user` na tabela `registros_acao` e `avaliacoes_aula`, limitadas aos tipos permitidos
+Criar `src/pages/admin/FormFieldConfigPage.tsx`:
+- Somente acessivel por N1
+- Tabela com linhas = campos, colunas = perfis (N1-N8)
+- Cada celula: toggle de habilitado/desabilitado + badge de obrigatorio
+- Ao alterar, faz upsert em `form_field_config`
+- Preview rapido: dropdown para selecionar perfil e visualizar como o formulario ficaria
+- Rota: `/admin/configurar-formulario`
 
-### 5. Tela Administrativa -- Matriz de Acoes x Perfis (somente N1)
+### 5. Rota e Menu
 
-- Criar `src/pages/admin/MatrizAcoesPage.tsx`
-- Tabela visual mostrando todos os tipos de acao vs todos os perfis, com icones de permissao (check verde, X vermelho, olho para view-only)
-- Rota `/matriz-acoes` adicionada ao `App.tsx` e ao menu admin no `Sidebar.tsx`
-- Dados carregados da constante `ACAO_PERMISSION_MATRIX` (read-only, sem edicao)
+- Adicionar rota `/admin/configurar-formulario` em `App.tsx`
+- Adicionar item no Sidebar admin: "Configurar Formulario" com icone `Settings2` ou `SlidersHorizontal`
+- Adicionar em `ALLOWED_ROUTES` do AppLayout somente para admin
 
-### 6. Atualizacao de Labels e Compatibilidade
+### 6. Validacao Backend (Edge Function)
 
-- Atualizar `tipoAcaoLabels` em `mockData.ts` com os novos tipos
-- Manter compatibilidade com `acompanhamento_aula` mapeando para `observacao_aula` onde necessario
+Nao sera necessaria uma edge function separada neste momento. A validacao ocorrera no frontend antes do insert, e os campos desabilitados serao substituidos por valores default antes de salvar. A tabela `avaliacoes_aula` exige todas as colunas de rating (NOT NULL com default 3), entao campos desabilitados serao salvos com o valor default. A RLS existente ja controla o acesso por perfil.
+
+Para protecao extra futura, pode-se criar um trigger `BEFORE INSERT ON avaliacoes_aula` que verifica `form_field_config` e rejeita payloads com campos nao permitidos. Isso sera implementado como trigger SQL na migracao.
 
 ## Detalhes Tecnicos
 
-### Estrutura do arquivo `acaoPermissions.ts`
+### Estrutura do Hook
 
 ```typescript
-export type AcaoTipo = 
-  | 'formacao' | 'visita' | 'observacao_aula' 
-  | 'devolutiva_pedagogica' | 'autoavaliacao'
-  | 'avaliacao_formacao_participante' | 'qualidade_atpcs';
+export function useFormFieldConfig(formKey: string) {
+  const { profile } = useAuth();
+  const role = profile?.role;
 
-export type ViewScope = 'proprio' | 'entidade' | 'programa' | 'all';
+  const { data, isLoading } = useQuery({
+    queryKey: ['form_field_config', formKey, role],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('form_field_config')
+        .select('field_key, enabled, required')
+        .eq('form_key', formKey)
+        .eq('role', role);
+      return data;
+    },
+    enabled: !!role,
+  });
 
-export interface AcaoPermission {
-  canCreate: boolean;
-  canEdit: boolean;
-  canDelete: boolean;
-  canView: boolean;
-  viewScope: ViewScope;
+  const configMap = useMemo(() => {
+    // defaults to enabled if no config found
+    ...
+  }, [data]);
+
+  return {
+    configMap,
+    isFieldEnabled: (key: string) => configMap[key]?.enabled ?? true,
+    isFieldRequired: (key: string) => configMap[key]?.required ?? false,
+    isLoading,
+  };
 }
-
-// ACAO_PERMISSION_MATRIX: Record<AppRole, Record<AcaoTipo, AcaoPermission>>
 ```
 
-### Novas RLS Policies necessarias
+### Trigger de Validacao (SQL)
 
-- `registros_acao`: INSERT policy para `is_local_user` com restricao de tipo (`observacao_aula`, `autoavaliacao`, `avaliacao_formacao_participante`)
-- `avaliacoes_aula`: INSERT policy para `is_local_user` limitada a suas entidades
-- `registros_acao`: INSERT policy para `is_observer` (N8) para `observacao_aula`
+```sql
+CREATE OR REPLACE FUNCTION validate_avaliacao_fields()
+RETURNS TRIGGER AS $$
+DECLARE
+  user_role app_role;
+  field_cfg RECORD;
+BEGIN
+  SELECT role INTO user_role FROM user_roles WHERE user_id = NEW.aap_id;
 
-### Rota e Menu
+  FOR field_cfg IN
+    SELECT field_key, enabled FROM form_field_config
+    WHERE form_key = 'observacao_aula' AND role = user_role AND enabled = false
+  LOOP
+    -- Reset disabled fields to default
+    IF field_cfg.field_key = 'clareza_objetivos' THEN NEW.clareza_objetivos := 3; END IF;
+    IF field_cfg.field_key = 'dominio_conteudo' THEN NEW.dominio_conteudo := 3; END IF;
+    -- ... etc for each field
+  END LOOP;
 
-- Nova rota: `/matriz-acoes` -> `MatrizAcoesPage`
-- Sidebar admin: adicionar item "Matriz de Acoes" com icone `Grid3X3` ou `Table`
-- AppLayout ALLOWED_ROUTES: adicionar `/matriz-acoes` apenas para admin
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+### Tela de Configuracao (Layout)
+
+A pagina tera:
+1. Titulo e descricao
+2. Tabela matricial: campos (linhas) x perfis (colunas)
+3. Cada celula com Switch para enabled + indicador de required
+4. Botao "Salvar Alteracoes" com batch upsert
+5. Secao "Preview" com select de perfil mostrando quais campos aparecerao
 
