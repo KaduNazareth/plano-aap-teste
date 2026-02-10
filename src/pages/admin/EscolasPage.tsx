@@ -343,13 +343,13 @@ export default function EscolasPage() {
               <DialogTrigger asChild>
                 <button onClick={() => handleOpenDialog()} className="btn-primary flex items-center gap-2">
                   <Plus size={20} />
-                  Nova Escola
+                  Nova Entidade
                 </button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>
-                  {editingEscola ? 'Editar Escola' : 'Nova Escola'}
+                  {editingEscola ? 'Editar Entidade' : 'Nova Entidade'}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
