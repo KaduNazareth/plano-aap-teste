@@ -161,25 +161,39 @@ export const ListaPresencaPrint = forwardRef<HTMLDivElement, ListaPresencaPrintP
               }
             }
 
-            body {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+            /* Force white background everywhere */
+            html, body, #root, #root > *, main, [class*="min-h"], [class*="bg-"] {
               background: white !important;
+              background-color: white !important;
               margin: 0 !important;
               padding: 0 !important;
             }
 
-            html {
-              background: white !important;
+            body {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
-            .print-container, .print\\:block {
-              display: block !important;
-              background: white !important;
-            }
-
+            /* Hide sidebar, nav, header, and all non-print UI */
+            aside, nav, header, [data-sidebar], [class*="sidebar"],
             .print\\:hidden {
               display: none !important;
+            }
+
+            /* Remove layout constraints so print content fills the page */
+            #root, #root > *, main, [class*="flex"], [class*="ml-"] {
+              display: block !important;
+              margin-left: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: 0 !important;
+              overflow: visible !important;
+            }
+
+            .print\\:block {
+              display: block !important;
+              background: white !important;
             }
 
             .lista-presenca-table {
