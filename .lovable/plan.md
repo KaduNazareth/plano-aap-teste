@@ -1,56 +1,28 @@
 
-## Renomear "AAPs / Formadores" para "Consultor / Gestor / Formador"
+## Restaurar "Formação" como tipo de ação independente
 
-Alteracao de nomenclatura em todos os pontos da aplicacao onde "AAP / Formador" ou "AAPs / Formadores" aparece como label visivel ao usuario.
+Atualmente, o tipo `formacao` foi mapeado para `acompanhamento_formacoes` na função `normalizeAcaoTipo`, fazendo com que ele desapareça como opção. Dados existentes no banco já usam `formacao`. Precisamos restaurá-lo como tipo separado.
 
-### Arquivos e alteracoes
+### Alterações
 
-#### 1. Sidebar (`src/components/layout/Sidebar.tsx`)
-- Linha 31: `'AAPs / Formadores'` → `'Consultor / Gestor / Formador'`
-- Linha 51: `'AAPs / Formadores'` → `'Consultor / Gestor / Formador'`
+#### 1. Registrar `formacao` como tipo de ação (`src/config/acaoPermissions.ts`)
 
-#### 2. Pagina AAPsPage (`src/pages/admin/AAPsPage.tsx`)
+- Adicionar `'formacao'` ao union type `AcaoTipo`
+- Adicionar `'formacao'` ao array `ACAO_TIPOS`
+- Adicionar entrada em `ACAO_TYPE_INFO` com label `'Formação'` e ícone `GraduationCap`
+- Adicionar entrada em `ACAO_PERMISSION_MATRIX` com as mesmas permissões que `lista_presenca` (Admin, Gerente, Coord Prog, CPed, GPI, Formador)
+- **Remover** a linha `if (tipo === 'formacao') return 'acompanhamento_formacoes'` de `normalizeAcaoTipo` para que `formacao` não seja mais convertido
 
-| Linha | De | Para |
-|-------|-----|------|
-| 39 | `'AAP / Formador Anos Iniciais'` | `'Consultor / Gestor / Formador Anos Iniciais'` |
-| 40 | `'AAP / Formador Lingua Portuguesa'` | `'Consultor / Gestor / Formador Lingua Portuguesa'` |
-| 41 | `'AAP / Formador Matematica'` | `'Consultor / Gestor / Formador Matematica'` |
-| 260 | header: `'AAP / Formador'` | `'Consultor / Gestor / Formador'` |
-| 346 | titulo h1: `'AAPs / Formadores'` | `'Consultores / Gestores / Formadores'` |
-| 347 | subtitulo: `'Gerencie os AAPs / Formadores do programa'` | `'Gerencie os Consultores / Gestores / Formadores do programa'` |
-| 354 | botao: `'Novo AAP / Formador'` | `'Novo Consultor / Gestor / Formador'` |
-| 360 | dialog: `'Editar AAP / Formador'` / `'Novo AAP / Formador'` | `'Editar Consultor / Gestor / Formador'` / `'Novo Consultor / Gestor / Formador'` |
-| 510 | placeholder: `'Buscar AAPs / Formadores...'` | `'Buscar Consultores / Gestores / Formadores...'` |
-| 520 | empty: `'Nenhum AAP / Formador cadastrado'` | `'Nenhum Consultor / Gestor / Formador cadastrado'` |
-| Toasts (linhas 112, 119, 183, 187, 208, 212, 219, 236, 240, 244) | mensagens com "AAP" | Substituir por "Consultor / Gestor / Formador" ou forma abreviada adequada |
-| 226 | confirm: `'...excluir este AAP?...'` | `'...excluir este consultor/gestor/formador?...'` |
+#### 2. Tratar "Formação" como tipo de formação no formulário (`src/pages/admin/ProgramacaoPage.tsx`)
 
-#### 3. Dashboard (`src/pages/admin/AdminDashboard.tsx`)
-- Linha 533: `'AAPs / Formadores'` → `'Consultores / Gestores / Formadores'`
+- Nas verificações `isFormacao` (linhas 433, 574, 1341), adicionar `'formacao'` à lista de tipos que permitem "Todos" em segmento/ano_serie e que abrem o diálogo de presença
 
-#### 4. Manual do Usuario (`src/pages/admin/ManualUsuarioPage.tsx`)
-- Linha 71: `'8. AAPs / Formadores'` → `'8. Consultores / Gestores / Formadores'`
-- Linha 72-73: Atualizar descricao para usar nova nomenclatura
+#### 3. Sem migração de banco necessária
 
-#### 5. Registros (`src/pages/admin/RegistrosPage.tsx`)
-- Linha 850: header: `'AAP / Formador'` → `'Consultor / Gestor / Formador'`
-
-#### 6. Relatorios (`src/pages/admin/RelatoriosPage.tsx`)
-- Linhas 701, 768: `'Relatorio de Acompanhamento - AAPs/Formadores'` → `'Relatorio de Acompanhamento - Consultores/Gestores/Formadores'`
-
-#### 7. Upload de Programacao (`src/components/forms/ProgramacaoUploadDialog.tsx`)
-- Linha 165: erro: `'AAP/Formador nao encontrado'` → `'Consultor/Gestor/Formador nao encontrado'`
-- Linha 161: comentario (opcional)
-
-#### 8. Upload de Usuarios (`src/components/users/BatchUserUploadDialog.tsx`)
-- Linha 190: erro: `'AAP / Formador ... deve ter um programa'` → `'Consultor / Gestor / Formador ... deve ter um programa'`
-
-### Nota
-- Variaveis internas, nomes de funcoes, tipos e chamadas de API (ex: `manage-aap-user`, `fetchAAPs`) permanecem inalterados para nao quebrar logica existente.
-- A edge function `send-monthly-report` tambem contem "AAPs/Formadores" no template de email -- sera atualizada tambem.
+A coluna `tipo` em `programacoes` e `registros_acao` é `text`, sem restrição de enum. O valor `'formacao'` já existe no banco de dados.
 
 ### Resumo
-- **8 arquivos frontend** + **1 edge function** editados
-- Apenas labels/textos visiveis ao usuario sao alterados
-- Nenhuma migracao de banco necessaria
+
+- **1 arquivo principal** editado (`acaoPermissions.ts`) para registrar o tipo
+- **1 arquivo** ajustado (`ProgramacaoPage.tsx`) para incluir `formacao` nas verificações de tipo formação
+- O tipo "Formação" volta a aparecer no seletor de criação de ações para os perfis autorizados
