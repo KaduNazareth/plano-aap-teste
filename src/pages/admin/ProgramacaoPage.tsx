@@ -686,7 +686,7 @@ export default function ProgramacaoPage() {
     }
     
     // Se for formação e a ação foi realizada, abrir formulário de presença
-    if (['formacao', 'acompanhamento_formacoes', 'lista_presenca', 'participa_formacoes'].includes(selectedProgramacao.tipo) && acaoRealizada) {
+    if (['formacao', 'lista_presenca', 'participa_formacoes'].includes(selectedProgramacao.tipo) && acaoRealizada) {
       setIsLoadingProfessores(true);
       try {
         // Buscar professores da mesma escola e componente, filtrando por segmento e ano/série se não for "todos"
