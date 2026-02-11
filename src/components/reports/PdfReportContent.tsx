@@ -411,20 +411,18 @@ export function PdfReportContent({
                   {item.totalResponses} {item.totalResponses === 1 ? 'resposta' : 'respostas'} • Média geral: {overallAvg.toFixed(2)} / {scaleMax}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                  <div>
-                    <ResponsiveContainer width="100%" height={Math.max(200, barData.length * 40)}>
-                      <BarChart data={barData} layout="vertical" margin={{ left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis type="number" domain={[0, scaleMax]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                        <YAxis dataKey="name" type="category" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} width={180} />
-                        <Tooltip
-                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                          formatter={(value: number, _: any, props: any) => [`${value.toFixed(2)} / ${props.payload.scaleMax}`, 'Média']}
-                          labelFormatter={(label: string, payload: any[]) => payload?.[0]?.payload?.fullName || label}
-                        />
-                        <Bar dataKey="Média" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div style={{ width: '520px', height: Math.max(200, barData.length * 40) + 'px' }}>
+                    <BarChart data={barData} layout="vertical" width={520} height={Math.max(200, barData.length * 40)} margin={{ left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, scaleMax]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis dataKey="name" type="category" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} width={180} />
+                      <Tooltip
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        formatter={(value: number, _: any, props: any) => [`${value.toFixed(2)} / ${props.payload.scaleMax}`, 'Média']}
+                        labelFormatter={(label: string, payload: any[]) => payload?.[0]?.payload?.fullName || label}
+                      />
+                      <Bar dataKey="Média" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                    </BarChart>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignContent: 'start' }}>
                     {item.dimensions.map(d => (

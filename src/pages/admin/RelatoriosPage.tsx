@@ -625,6 +625,8 @@ export default function RelatoriosPage() {
       pdfContainer.style.width = '1200px';
       pdfContainer.style.minWidth = '1200px';
       pdfContainer.style.backgroundColor = '#ffffff';
+      pdfContainer.style.overflow = 'visible';
+      pdfContainer.style.height = 'auto';
       document.body.appendChild(pdfContainer);
       
       // Render the PDF-specific component into the offscreen container
@@ -652,7 +654,8 @@ export default function RelatoriosPage() {
       );
       
       // Wait for React to render and charts to initialize
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer for React + Recharts to render (charts need ResizeObserver to fire)
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       // A4 dimensions in mm
       const a4Width = 210;
