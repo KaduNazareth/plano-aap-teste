@@ -27,7 +27,7 @@ interface MenuItem {
 const adminMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: School, label: 'Escola / Regional / Rede', path: '/escolas' },
-  { icon: Users, label: 'Professores / Coordenadores', path: '/professores' },
+  { icon: Users, label: 'Atores Educacionais', path: '/professores' },
   { icon: UserCheck, label: 'AAPs / Formadores', path: '/aaps' },
   { icon: Calendar, label: 'Programação', path: '/programacao' },
   { icon: ClipboardList, label: 'Registros', path: '/registros' },
@@ -47,7 +47,7 @@ const adminMenuItems: MenuItem[] = [
 const managerMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: School, label: 'Escola / Regional / Rede', path: '/escolas' },
-  { icon: Users, label: 'Professores / Coordenadores', path: '/professores' },
+  { icon: Users, label: 'Atores Educacionais', path: '/professores' },
   { icon: UserCheck, label: 'AAPs / Formadores', path: '/aaps' },
   { icon: Calendar, label: 'Programação', path: '/programacao' },
   { icon: ClipboardList, label: 'Registros', path: '/registros' },
@@ -66,7 +66,7 @@ const operationalMenuItems: MenuItem[] = [
   { icon: FileText, label: 'Registrar Ação', path: '/aap/registrar' },
   { icon: ClipboardList, label: 'Histórico', path: '/aap/historico' },
   { icon: TrendingUp, label: 'Evolução Professor', path: '/aap/evolucao' },
-  { icon: Users, label: 'Professores / Coordenadores', path: '/professores' },
+  { icon: Users, label: 'Atores Educacionais', path: '/professores' },
   { icon: Printer, label: 'Lista de Presença', path: '/lista-presenca' },
   { icon: History, label: 'Histórico Presença', path: '/historico-presenca' },
   { icon: BookOpen, label: 'Manual do Usuário', path: '/manual' },
@@ -87,7 +87,7 @@ const localMenuItems: MenuItem[] = [
 const observerMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: School, label: 'Escola / Regional / Rede', path: '/escolas' },
-  { icon: Users, label: 'Professores / Coordenadores', path: '/professores' },
+  { icon: Users, label: 'Atores Educacionais', path: '/professores' },
   { icon: Calendar, label: 'Programação', path: '/programacao' },
   { icon: ClipboardList, label: 'Registros', path: '/registros' },
   { icon: TrendingUp, label: 'Evolução Professor', path: '/evolucao-professor' },

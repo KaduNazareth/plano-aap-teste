@@ -61,7 +61,7 @@ const sections: ManualSection[] = [
   },
   {
     icon: Users,
-    title: '7. Professores / Coordenadores',
+    title: '7. Atores Educacionais',
     description: 'Cadastre e gerencie professores e coordenadores pedagógicos vinculados às escolas. Os campos incluem nome, cargo, componente curricular, segmento, ano/série, e-mail e telefone. Professores podem ser filtrados por escola, segmento e componente.',
     tips: ['Professores desativados mantêm histórico mas não aparecem em novos registros.', 'A importação em lote facilita o cadastro de muitos professores de uma vez.'],
     screenshot: '/manual/screenshot-professores.png',
