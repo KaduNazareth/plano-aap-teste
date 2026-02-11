@@ -1,51 +1,51 @@
 
 
-## Corrigir Formularios: Engajamento e Solidez + Implantacao (Por Entidade)
+## Revisao de Seguranca: Politicas RLS da Tabela `programacoes`
 
-### Contexto
-Os documentos enviados revelam que os campos atualmente cadastrados no banco estao trocados:
-- `obs_engajamento_solidez` contem os campos de Implantacao (1 rating + 5 textos) -- ERRADO
-- `obs_implantacao_programa` nao tem campos cadastrados
+### Diagnostico
 
-Alem disso, nao ha respostas registradas para nenhum dos dois instrumentos, entao a correcao pode ser feita sem perda de dados.
+Apos analisar as 11 politicas RLS da tabela `programacoes`, identifiquei **1 problema critico** e **1 ponto de atencao**:
 
-### Alteracoes no Banco de Dados (migracao SQL)
+### Problema 1 (Critico): Politicas aplicam-se a `PUBLIC` em vez de `authenticated`
 
-**1. Mover campos existentes de `obs_engajamento_solidez` para `obs_implantacao_programa`:**
-Os 6 campos atuais (situacao_geral, fraquezas, forcas, principais_avancos, principais_riscos, recomendacoes_estrategicas) pertencem ao formulario de Implantacao. Basta atualizar o `form_type`.
+Todas as 11 politicas omitem a clausula `TO`, o que faz com que se apliquem ao role `PUBLIC` (inclui `anon`). Embora as funcoes de verificacao de role (`is_admin`, `is_gestor`, etc.) retornem `false` para usuarios anonimos (pois `auth.uid()` sera NULL), a pratica recomendada e restringir explicitamente a `authenticated` para:
+- Eliminar chamadas desnecessarias as funcoes de verificacao para requisicoes anonimas
+- Garantir defesa em profundidade caso alguma funcao tenha bug
+- Seguir as melhores praticas de seguranca do Supabase
 
-**2. Criar campos corretos para `obs_engajamento_solidez`:**
-Conforme o documento, sao 5 campos de rating (escala 1-4) + 1 campo texto:
+**Politicas afetadas (todas as 11):**
+- N1 Admins manage programacoes
+- N2N3 Managers (view/insert/update/delete) -- 4 politicas
+- N4N5 Operational (view/insert/update/delete) -- 4 politicas
+- N6N7 Local view programacoes
+- N8 Observer view programacoes
 
-| # | field_key | label | tipo | escala |
-|---|-----------|-------|------|--------|
-| 1 | clareza_papel_pe | Clareza sobre o Papel da PE no Desenvolvimento Pedagogico e da Gestao | rating | 1-4 (Fragil / Em construcao / Ativa / Consolidada) |
-| 2 | clareza_papel_consultor | Clareza sobre o Papel do Consultor/Gestor Pedagogico | rating | 1-4 |
-| 3 | participacao_gestao_escolar | Participacao da Gestao Escolar | rating | 1-4 |
-| 4 | abertura_acompanhamento | Abertura para Acompanhamento e Devolutivas | rating | 1-4 |
-| 5 | estabilidade_parceria | Estabilidade da Parceria com a Escola | rating | 1-4 |
-| 6 | evidencias | Evidencias | text | -- |
+### Problema 2 (Atencao): N6N7 Local nao filtra por programa
 
-Todos os 5 campos rating usam a mesma rubrica:
-- 1 = Fragil (Baixo engajamento; parceria reativa)
-- 2 = Em construcao (Engajamento pontual; dependencia de mediacao)
-- 3 = Ativa (Participacao consistente; corresponsabilidade)
-- 4 = Consolidada (Parceria estrategica; alto nivel de confianca)
+A politica `N6N7 Local view programacoes` verifica apenas `user_has_entidade(auth.uid(), escola_id)`, sem filtrar por programa. Isso significa que um usuario local (coordenador pedagogico ou professor) vinculado a uma entidade pode ver programacoes de **todos os programas** daquela entidade, mesmo que nao participe de todos. Isso pode ser intencional (visibilidade escolar completa) mas merece confirmacao.
 
-### Alteracoes no Codigo
+### Solucao Proposta
 
-**1. `src/config/acaoPermissions.ts` (linha 56):**
-Renomear o label de `obs_implantacao_programa` de "Por Escola" para "Por Entidade".
+Recriar todas as 11 politicas adicionando `TO authenticated`:
 
-**2. `src/hooks/useInstrumentFields.ts` (linha 73):**
-Renomear o label de `obs_implantacao_programa` de "Por Escola" para "Por Entidade".
+```text
+Para cada politica:
+1. DROP POLICY "nome_atual" ON public.programacoes;
+2. CREATE POLICY "nome_atual" ON public.programacoes
+   FOR [comando]
+   TO authenticated        -- ADICIONAR ESTA LINHA
+   USING (...);            -- manter expressao existente
+```
 
-### Resumo
+A logica interna de cada politica permanece identica -- apenas se adiciona a restricao de role.
 
-| Local | Alteracao |
-|-------|-----------|
-| Banco de dados | Mover 6 campos de obs_engajamento_solidez para obs_implantacao_programa |
-| Banco de dados | Inserir 6 novos campos para obs_engajamento_solidez (5 rating + 1 texto) |
-| acaoPermissions.ts | Renomear label para "Por Entidade" |
-| useInstrumentFields.ts | Renomear label para "Por Entidade" |
+### Resumo das Alteracoes
+
+| Alteracao | Impacto |
+|-----------|---------|
+| Adicionar `TO authenticated` nas 11 politicas | Bloqueia explicitamente acesso anonimo; sem impacto em usuarios logados |
+| (Opcional) Adicionar filtro de programa em N6N7 | Restringiria visibilidade local por programa -- requer confirmacao de regra de negocio |
+
+### Nota sobre dados existentes
+Ha 54 registros na tabela (39 realizadas, 10 previstas, 3 reagendadas, 2 canceladas). Nenhum dado sera afetado -- apenas a camada de seguranca sera reforçada.
 
