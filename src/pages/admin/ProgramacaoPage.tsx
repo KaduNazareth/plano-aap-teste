@@ -629,6 +629,23 @@ export default function ProgramacaoPage() {
     setIsManageDialogOpen(true);
   };
 
+  const handleOpenAcompanhamentoDialog = (prog: ProgramacaoDB) => {
+    setSelectedProgramacao(prog);
+    setAcaoRealizada(true);
+    setMotivoCancelamento('');
+    setReagendar(false);
+    setNovaData('');
+    setNovoHorarioInicio('');
+    setNovoHorarioFim('');
+    setAgendarAcompanhamento(true);
+    setAcompanhamentoData(prog.data);
+    setAcompanhamentoHorarioInicio(prog.horario_inicio);
+    setAcompanhamentoHorarioFim(prog.horario_fim);
+    setAcompanhamentoAapId('');
+    setAtoresElegiveis([]);
+    setIsManageDialogOpen(true);
+  };
+
   const handleManageSubmit = async () => {
     if (!selectedProgramacao || acaoRealizada === null) return;
     
@@ -696,6 +713,42 @@ export default function ProgramacaoPage() {
       return;
     }
     
+    // Se a formação JÁ está realizada e o usuário quer apenas agendar acompanhamento, processar direto
+    if (selectedProgramacao.status === 'realizada' && selectedProgramacao.tipo === 'formacao' && agendarAcompanhamento && acaoRealizada) {
+      setIsSubmitting(true);
+      try {
+        if (!acompanhamentoAapId) {
+          toast.error('Selecione o ator responsável pelo acompanhamento');
+          return;
+        }
+        const { error: acompProgError } = await supabase.from('programacoes').insert({
+          tipo: 'acompanhamento_formacoes',
+          titulo: `Acompanhamento: ${selectedProgramacao.titulo}`,
+          data: acompanhamentoData,
+          horario_inicio: acompanhamentoHorarioInicio,
+          horario_fim: acompanhamentoHorarioFim,
+          escola_id: selectedProgramacao.escola_id,
+          aap_id: acompanhamentoAapId,
+          segmento: selectedProgramacao.segmento,
+          componente: selectedProgramacao.componente,
+          ano_serie: selectedProgramacao.ano_serie,
+          programa: selectedProgramacao.programa,
+          formacao_origem_id: selectedProgramacao.id,
+          status: 'prevista',
+        });
+        if (acompProgError) throw acompProgError;
+        toast.success('Acompanhamento de Formação agendado com sucesso!');
+        setIsManageDialogOpen(false);
+        fetchProgramacoes();
+      } catch (error) {
+        console.error('Error scheduling acompanhamento:', error);
+        toast.error('Erro ao agendar acompanhamento');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     // Se for formação e a ação foi realizada, abrir formulário de presença
     if (['formacao', 'lista_presenca', 'participa_formacoes'].includes(selectedProgramacao.tipo) && acaoRealizada) {
       setIsLoadingProfessores(true);
@@ -2042,7 +2095,7 @@ export default function ProgramacaoPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleOpenManageDialog(event)}
+                              onClick={() => handleOpenAcompanhamentoDialog(event)}
                               className="text-primary border-primary/30 hover:bg-primary/10"
                             >
                               <CalendarPlus size={14} className="mr-1" />
@@ -2132,7 +2185,7 @@ export default function ProgramacaoPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleOpenManageDialog(prog)}
+                              onClick={() => handleOpenAcompanhamentoDialog(prog)}
                             >
                               <Edit size={14} className="mr-1" />
                               Gerenciar
