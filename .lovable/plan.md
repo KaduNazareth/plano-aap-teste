@@ -1,51 +1,56 @@
 
 
-## Manual do Usuario -- Pagina com Exportacao PDF
+## Adicionar Screenshots Reais ao Manual do Usuario
 
 ### Resumo
-Criar uma pagina "/manual" dentro da aplicacao que exibe o manual do usuario com descricoes ilustradas de cada modulo, com botao para exportar tudo em PDF. A pagina usara ilustracoes via icones (Lucide) e descricoes textuais detalhadas de cada tela/modulo, organizadas em secoes com layout A4-friendly.
+Adicionar imagens reais de cada tela do sistema ao Manual do Usuario, tornando-o mais visual e ilustrativo. As screenshots serao salvas como arquivos estaticos na pasta `public/manual/` e referenciadas no componente da pagina.
 
 ### O que sera feito
 
-**1. Nova pagina `src/pages/admin/ManualUsuarioPage.tsx`**
+**1. Capturar screenshots de todas as telas**
 
-Pagina com todas as secoes do manual, cada uma contendo:
-- Icone representativo do modulo
-- Titulo do modulo
-- Descricao detalhada de como usar
-- Dicas e observacoes
+Usando o navegador integrado, vou capturar prints de cada modulo do sistema com as credenciais de teste ja fornecidas. As imagens serao salvas em `public/manual/`:
 
-Modulos documentados:
-- Login e Autenticacao
-- Dashboard (Painel Principal)
-- Programacao (Calendario de Acoes)
-- Registrar Acao (Formulario)
-- Registros (Historico)
-- Escolas / Regional / Rede
-- Professores / Coordenadores
-- AAPs / Formadores
-- Evolucao do Professor
-- Relatorios
-- Lista de Presenca
-- Historico de Presenca
-- Usuarios (Gestao)
-- Pendencias
-- Perfil do Usuario
+| Arquivo | Tela |
+|---------|------|
+| `screenshot-login.png` | Tela de login |
+| `screenshot-dashboard.png` | Dashboard / Painel Principal |
+| `screenshot-programacao.png` | Programacao |
+| `screenshot-registrar-acao.png` | Formulario de registro de acao |
+| `screenshot-registros.png` | Historico de registros |
+| `screenshot-escolas.png` | Escolas / Regional / Rede |
+| `screenshot-professores.png` | Professores / Coordenadores |
+| `screenshot-aaps.png` | AAPs / Formadores |
+| `screenshot-evolucao.png` | Evolucao do Professor |
+| `screenshot-relatorios.png` | Relatorios |
+| `screenshot-lista-presenca.png` | Lista de Presenca |
+| `screenshot-historico-presenca.png` | Historico de Presenca |
+| `screenshot-usuarios.png` | Gestao de Usuarios |
+| `screenshot-pendencias.png` | Pendencias |
+| `screenshot-perfil.png` | Perfil do Usuario |
 
-Botao "Exportar PDF" no topo que usa `html2canvas` + `jspdf` (ja instalados) para capturar o conteudo da pagina e gerar um PDF multi-pagina A4.
+**2. Atualizar `ManualUsuarioPage.tsx`**
 
-**2. Rota e menu**
+- Adicionar campo `screenshot` na interface `ManualSection` com o caminho da imagem
+- Cada secao exibira a screenshot abaixo do titulo/descricao, dentro de um container com borda arredondada e sombra leve
+- A imagem tera estilo `max-width: 100%` com borda e border-radius para parecer uma janela de aplicativo
+- No PDF exportado, as imagens serao capturadas junto pelo html2canvas, mantendo a fidelidade visual
 
-- Adicionar rota `/manual` no `App.tsx`
-- Adicionar item "Manual do Usuario" no menu lateral (Sidebar) para perfis admin e manager com icone `BookOpen` ou `HelpCircle`
-- Adicionar `/manual` nas rotas permitidas de todos os tiers em `AppLayout.tsx`
+### Resultado esperado
+
+Cada secao do manual tera:
+1. Icone + titulo do modulo
+2. Descricao textual de como usar
+3. Screenshot real da tela correspondente (com borda/sombra)
+4. Dicas de uso
+
+O PDF exportado incluira todas as screenshots, gerando um documento completo e visualmente rico.
 
 ### Detalhes tecnicos
 
-- A pagina renderiza todo o conteudo do manual em um container com `ref`, que e capturado pelo `html2canvas` ao clicar "Exportar PDF"
-- O PDF e gerado com `jspdf` adicionando cada "pagina" de canvas como imagem, respeitando proporcoes A4
-- O conteudo usa estilos inline para garantir fidelidade na captura
-- Cada secao do manual tera um card com borda, icone colorido, titulo e texto descritivo
-- Cabecalho com logo "Parceiros da Educacao" e titulo "Manual do Usuario"
-- Layout responsivo na tela, mas otimizado para A4 no PDF
+- As imagens ficam em `public/manual/` como assets estaticos (sem banco de dados)
+- Referenciadas via caminho `/manual/screenshot-xxx.png` no JSX
+- O `html2canvas` ja esta configurado com `useCORS: true`, entao capturara as imagens corretamente no PDF
+- Cada card de secao tera `pageBreakInside: 'avoid'` para evitar cortes no meio de uma secao no PDF
+- As imagens terao tamanho controlado para nao estourar o layout A4
 
