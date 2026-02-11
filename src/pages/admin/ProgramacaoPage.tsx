@@ -135,6 +135,7 @@ export default function ProgramacaoPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTypeSelectionOpen, setIsTypeSelectionOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [isLoading, setIsLoading] = useState(true);
@@ -1361,47 +1362,79 @@ export default function ProgramacaoPage() {
             Importar
           </button>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          {/* Type Selection Dialog (Step 1) */}
+          <Dialog open={isTypeSelectionOpen} onOpenChange={setIsTypeSelectionOpen}>
             <DialogTrigger asChild>
               <button className="btn-primary flex items-center gap-2" data-tour="prog-new-btn">
                 <Plus size={20} />
                 Nova Ação
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto w-[95vw] sm:w-auto">
               <DialogHeader>
-                <DialogTitle>Programar Nova Ação</DialogTitle>
+                <DialogTitle>Selecione o Tipo de Ação</DialogTitle>
+                <DialogDescription>Escolha qual ação deseja programar</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                {creatableAcoes.filter(t => t !== 'acompanhamento_formacoes').map(tipo => {
+                  const info = ACAO_TYPE_INFO[tipo];
+                  const Icon = info.icon;
+                  return (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, tipo }));
+                        setIsTypeSelectionOpen(false);
+                        setIsDialogOpen(true);
+                      }}
+                      className="flex items-center gap-3 p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <span className="font-medium text-sm leading-tight">{info.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Form Dialog (Step 2) */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
+              <DialogHeader>
+                <DialogTitle>Programar {ACAO_TYPE_INFO[formData.tipo as AcaoTipo]?.label || 'Ação'}</DialogTitle>
+              </DialogHeader>
+              {/* Selected type indicator + back button */}
+              <div className="flex items-center gap-2 -mt-1 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setIsTypeSelectionOpen(true);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                  Alterar tipo
+                </button>
+                <span className="text-xs text-muted-foreground">•</span>
+                {(() => {
+                  const info = ACAO_TYPE_INFO[formData.tipo as AcaoTipo];
+                  if (!info) return null;
+                  const Icon = info.icon;
+                  return (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                      <Icon className="w-3.5 h-3.5" />
+                      {info.label}
+                    </span>
+                  );
+                })()}
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-
-
-                  <div className="col-span-2">
-                    <label className="form-label">Tipo de Ação *</label>
-                    <div className="flex flex-wrap gap-2">
-                      {creatableAcoes.filter(t => t !== 'acompanhamento_formacoes').map(tipo => {
-                        const info = ACAO_TYPE_INFO[tipo];
-                        const Icon = info.icon;
-                        const isSelected = formData.tipo === tipo;
-                        return (
-                          <button
-                            key={tipo}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, tipo })}
-                            className={cn(
-                              "min-w-[120px] py-2 px-3 rounded-lg border-2 font-medium transition-all flex items-center gap-2 text-xs",
-                              isSelected
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border hover:border-muted-foreground"
-                            )}
-                          >
-                            <Icon className="w-4 h-4 shrink-0" />
-                            <span className="text-left leading-tight">{info.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                   
                   <div className="col-span-2">
                     <label className="form-label">Programa *</label>
@@ -1757,7 +1790,7 @@ export default function ProgramacaoPage() {
                     onDoubleClick={() => {
                       setSelectedDate(day);
                       setFormData(prev => ({ ...prev, data: format(day, 'yyyy-MM-dd') }));
-                      setIsDialogOpen(true);
+                      setIsTypeSelectionOpen(true);
                     }}
                     className={cn(
                       "min-h-[80px] p-2 rounded-lg border transition-all text-left",
