@@ -872,7 +872,7 @@ export default function AAPRegistrarAcaoPage() {
               )}
 
               {/* Instrument Form (for pedagogical instrument types or hybrid types) */}
-              {acaoRealizada === true && ((isInstrumentType && normalizedTipo) || (isHybridType && normalizedTipo)) && (
+              {acaoRealizada === true && (((isInstrumentType && !isPresenceType) && normalizedTipo) || (isHybridType && normalizedTipo)) && (
                 <div>
                   <h4 className="font-medium mb-3 flex items-center gap-2">
                     <ClipboardCheck size={18} className="text-primary" />
@@ -887,7 +887,7 @@ export default function AAPRegistrarAcaoPage() {
               )}
 
               {/* Observations (shown when action was realized and NOT instrument type) */}
-              {acaoRealizada === true && !isInstrumentType && (
+              {acaoRealizada === true && ((!isInstrumentType || isPresenceType) && !isHybridType) && (
                 <>
 
                   {/* Observations */}
