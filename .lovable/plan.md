@@ -1,57 +1,51 @@
 
 
-## Novo fluxo de criacao de acao em duas etapas
+## Correcao dos formularios trocados entre Formacao e Acompanhamento de Formacoes
 
-### Situacao atual
-O botao "Nova Acao" abre um unico dialog grande com todos os tipos de acao como botoes no topo e todos os campos do formulario abaixo. Isso torna a interface confusa, especialmente porque campos como Segmento, Componente e Ano/Serie mudam de comportamento dependendo do tipo selecionado.
+### Problema identificado
 
-### Novo fluxo proposto
+Os dados no banco de dados estao com os `form_type` invertidos na tabela `instrument_fields`:
 
-**Etapa 1 - Selecao do tipo de acao:**
-- Ao clicar em "Nova Acao", abre um dialog limpo mostrando apenas os tipos de acao disponiveis para o perfil do usuario
-- Cada tipo e apresentado como um card/botao com icone, nome e uma breve descricao
-- O usuario clica no tipo desejado
+- **`formacao`** no banco tem 8 campos (Tema, Objetivos, Conteudos, Metodologia, Engajamento, Evidencias, Pontos de Atencao, Proximos Passos) -- mas esses campos pertencem ao **Acompanhamento de Formacoes**
+- **`acompanhamento_formacoes`** no banco tem 6 campos (Objetivos, Metodologia, Engajamento, Evidencias, Pontos de Atencao, Proximos Passos) -- mas esses campos pertencem a **Formacao**
 
-**Etapa 2 - Formulario especifico:**
-- Apos selecionar o tipo, abre um segundo dialog (substituindo o primeiro) com os campos relevantes para aquele tipo de acao
-- Campos condicionais (Segmento, Componente, Ano/Serie) ja aparecem configurados conforme o tipo selecionado
-- O titulo do dialog mostra o tipo selecionado (ex: "Programar Formacao", "Programar Observacao de Aula")
+O codigo faz mapeamento direto (1:1) entre tipo de acao e tipo de formulario, entao o problema nao esta no codigo, mas sim nos dados. Ao corrigir os dados, tanto a pagina "Matriz de Acoes x Perfis" quanto o calendario passarao a exibir os formularios corretos.
+
+### Solucao
+
+Uma unica migracao SQL para trocar os valores de `form_type` na tabela `instrument_fields`:
+
+1. Renomear temporariamente `formacao` para `_temp_formacao`
+2. Renomear `acompanhamento_formacoes` para `formacao`
+3. Renomear `_temp_formacao` para `acompanhamento_formacoes`
+
+Tambem sera necessario fazer o mesmo swap para dados ja existentes na tabela `instrument_responses` (se houver respostas salvas) e `form_field_config` (se houver configuracoes de campo por perfil).
 
 ### Detalhes tecnicos
 
-#### Arquivo modificado: `src/pages/admin/ProgramacaoPage.tsx`
+**Migracao SQL:**
 
-**1. Novo estado para controlar as etapas:**
 ```text
-const [isTypeSelectionOpen, setIsTypeSelectionOpen] = useState(false);
+-- Swap form_type values in instrument_fields
+UPDATE instrument_fields SET form_type = '_temp_formacao' WHERE form_type = 'formacao';
+UPDATE instrument_fields SET form_type = 'formacao' WHERE form_type = 'acompanhamento_formacoes';
+UPDATE instrument_fields SET form_type = 'acompanhamento_formacoes' WHERE form_type = '_temp_formacao';
+
+-- Swap form_type values in instrument_responses (if any)
+UPDATE instrument_responses SET form_type = '_temp_formacao' WHERE form_type = 'formacao';
+UPDATE instrument_responses SET form_type = 'formacao' WHERE form_type = 'acompanhamento_formacoes';
+UPDATE instrument_responses SET form_type = 'acompanhamento_formacoes' WHERE form_type = '_temp_formacao';
+
+-- Swap form_type values in form_field_config (if any)
+UPDATE form_field_config SET form_type = '_temp_formacao' WHERE form_type = 'formacao';
+UPDATE form_field_config SET form_type = 'formacao' WHERE form_type = 'acompanhamento_formacoes';
+UPDATE form_field_config SET form_type = 'acompanhamento_formacoes' WHERE form_type = '_temp_formacao';
 ```
-O `isDialogOpen` existente continua controlando o dialog do formulario (etapa 2).
 
-**2. Etapa 1 - Dialog de selecao de tipo:**
-- Um novo `Dialog` controlado por `isTypeSelectionOpen`
-- Renderiza os `creatableAcoes` (excluindo `acompanhamento_formacoes`) como cards em grid
-- Cada card mostra: icone (`ACAO_TYPE_INFO[tipo].icon`), label (`ACAO_TYPE_INFO[tipo].label`)
-- Ao clicar em um card:
-  - Define `formData.tipo` com o tipo selecionado
-  - Fecha o dialog de selecao (`setIsTypeSelectionOpen(false)`)
-  - Abre o dialog do formulario (`setIsDialogOpen(true)`)
-
-**3. Etapa 2 - Dialog do formulario (refatorado):**
-- Remove o bloco de botoes de selecao de tipo (linhas 1379-1404) que hoje aparece dentro do form
-- Adiciona um indicador visual no topo do dialog mostrando o tipo selecionado (icone + label) com opcao de voltar
-- Mantem todos os campos existentes com a logica condicional atual (`isFormacaoType`, etc.)
-- O titulo do dialog muda para incluir o tipo: ex: "Programar {tipoLabel}"
-
-**4. Atualizar o botao "Nova Acao":**
-- O botao `DialogTrigger` passa a abrir `isTypeSelectionOpen` ao inves de `isDialogOpen`
-- O duplo-clique no calendario tambem abre `isTypeSelectionOpen` (com a data pre-preenchida)
-
-**5. Botao "Voltar" no formulario:**
-- No dialog do formulario (etapa 2), adicionar um botao "Voltar" que fecha o formulario e reabre a selecao de tipo
-- Permite ao usuario trocar o tipo sem perder os dados ja preenchidos (exceto o tipo)
+**Nenhuma alteracao de codigo e necessaria** -- o mapeamento direto no `MatrizAcoesPage.tsx` e no `ProgramacaoPage.tsx` ja esta correto. O problema esta exclusivamente nos dados.
 
 ### Resultado esperado
-- Fluxo mais intuitivo: primeiro escolhe O QUE fazer, depois preenche os detalhes
-- Dialog de selecao limpo e visual com cards grandes e icones
-- Formulario da etapa 2 mais focado, sem a lista de tipos no topo
-- Contexto claro do tipo selecionado no cabecalho do formulario
+
+- Na Matriz de Acoes: "Formacao" mostrara o formulario com 6 campos e "Acompanhamento Formacoes" mostrara o formulario com 8 campos
+- No calendario: ao gerenciar uma acao de Formacao ou Acompanhamento, o formulario correto sera carregado
+- Respostas ja salvas (se existirem) continuarao vinculadas ao tipo correto
