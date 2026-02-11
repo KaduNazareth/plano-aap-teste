@@ -1,41 +1,56 @@
 
+## Renomear "AAPs / Formadores" para "Consultor / Gestor / Formador"
 
-## Renomear "Professores / Coordenadores" para "Atores Educacionais" e adicionar novos cargos
+Alteracao de nomenclatura em todos os pontos da aplicacao onde "AAP / Formador" ou "AAPs / Formadores" aparece como label visivel ao usuario.
 
-### Alteracoes
+### Arquivos e alteracoes
 
 #### 1. Sidebar (`src/components/layout/Sidebar.tsx`)
+- Linha 31: `'AAPs / Formadores'` → `'Consultor / Gestor / Formador'`
+- Linha 51: `'AAPs / Formadores'` → `'Consultor / Gestor / Formador'`
 
-Renomear todas as 4 ocorrencias de `Professores / Coordenadores` para `Atores Educacionais` (linhas 30, 50, 69, 90).
+#### 2. Pagina AAPsPage (`src/pages/admin/AAPsPage.tsx`)
 
-#### 2. Tipo TypeScript (`src/types/index.ts`)
-
-Expandir o tipo `CargoProfessor` para incluir os novos cargos:
-
-```text
-De:  'professor' | 'coordenador'
-Para: 'professor' | 'coordenador' | 'vice_diretor' | 'diretor' | 'equipe_tecnica_sme'
-```
-
-#### 3. Pagina de Atores (`src/pages/admin/ProfessoresPage.tsx`)
-
-| Local | De | Para |
+| Linha | De | Para |
 |-------|-----|------|
-| `cargoLabels` (linha 71-73) | 2 entradas | Adicionar: `vice_diretor: 'Vice-Diretor'`, `diretor: 'Diretor'`, `equipe_tecnica_sme: 'Equipe Tecnica (SME)'` |
-| `cargoMap` (linha 338-340) | 2 entradas | Adicionar mapeamentos para importacao: `'vice-diretor'`, `'diretor'`, `'equipe tecnica'`, `'equipe_tecnica_sme'` |
-| Titulo do dialogo de importacao (linha 719) | `Importar Professores / Coordenadores` | `Importar Atores Educacionais` |
-| Template de exportacao (linha 502) | Cargo: `'professor'` | Sem alteracao (template mostra apenas exemplo) |
+| 39 | `'AAP / Formador Anos Iniciais'` | `'Consultor / Gestor / Formador Anos Iniciais'` |
+| 40 | `'AAP / Formador Lingua Portuguesa'` | `'Consultor / Gestor / Formador Lingua Portuguesa'` |
+| 41 | `'AAP / Formador Matematica'` | `'Consultor / Gestor / Formador Matematica'` |
+| 260 | header: `'AAP / Formador'` | `'Consultor / Gestor / Formador'` |
+| 346 | titulo h1: `'AAPs / Formadores'` | `'Consultores / Gestores / Formadores'` |
+| 347 | subtitulo: `'Gerencie os AAPs / Formadores do programa'` | `'Gerencie os Consultores / Gestores / Formadores do programa'` |
+| 354 | botao: `'Novo AAP / Formador'` | `'Novo Consultor / Gestor / Formador'` |
+| 360 | dialog: `'Editar AAP / Formador'` / `'Novo AAP / Formador'` | `'Editar Consultor / Gestor / Formador'` / `'Novo Consultor / Gestor / Formador'` |
+| 510 | placeholder: `'Buscar AAPs / Formadores...'` | `'Buscar Consultores / Gestores / Formadores...'` |
+| 520 | empty: `'Nenhum AAP / Formador cadastrado'` | `'Nenhum Consultor / Gestor / Formador cadastrado'` |
+| Toasts (linhas 112, 119, 183, 187, 208, 212, 219, 236, 240, 244) | mensagens com "AAP" | Substituir por "Consultor / Gestor / Formador" ou forma abreviada adequada |
+| 226 | confirm: `'...excluir este AAP?...'` | `'...excluir este consultor/gestor/formador?...'` |
+
+#### 3. Dashboard (`src/pages/admin/AdminDashboard.tsx`)
+- Linha 533: `'AAPs / Formadores'` → `'Consultores / Gestores / Formadores'`
 
 #### 4. Manual do Usuario (`src/pages/admin/ManualUsuarioPage.tsx`)
+- Linha 71: `'8. AAPs / Formadores'` → `'8. Consultores / Gestores / Formadores'`
+- Linha 72-73: Atualizar descricao para usar nova nomenclatura
 
-Renomear `7. Professores / Coordenadores` para `7. Atores Educacionais` (linha 64).
+#### 5. Registros (`src/pages/admin/RegistrosPage.tsx`)
+- Linha 850: header: `'AAP / Formador'` → `'Consultor / Gestor / Formador'`
 
-### Nota sobre o banco de dados
+#### 6. Relatorios (`src/pages/admin/RelatoriosPage.tsx`)
+- Linhas 701, 768: `'Relatorio de Acompanhamento - AAPs/Formadores'` → `'Relatorio de Acompanhamento - Consultores/Gestores/Formadores'`
 
-A coluna `cargo` na tabela `professores` e do tipo `text` (sem restricao de enum). Os novos valores serao aceitos sem necessidade de migracao.
+#### 7. Upload de Programacao (`src/components/forms/ProgramacaoUploadDialog.tsx`)
+- Linha 165: erro: `'AAP/Formador nao encontrado'` → `'Consultor/Gestor/Formador nao encontrado'`
+- Linha 161: comentario (opcional)
+
+#### 8. Upload de Usuarios (`src/components/users/BatchUserUploadDialog.tsx`)
+- Linha 190: erro: `'AAP / Formador ... deve ter um programa'` → `'Consultor / Gestor / Formador ... deve ter um programa'`
+
+### Nota
+- Variaveis internas, nomes de funcoes, tipos e chamadas de API (ex: `manage-aap-user`, `fetchAAPs`) permanecem inalterados para nao quebrar logica existente.
+- A edge function `send-monthly-report` tambem contem "AAPs/Formadores" no template de email -- sera atualizada tambem.
 
 ### Resumo
-
-- **5 arquivos** editados
-- **0 migracoes** necessarias
-- Novos cargos ficam disponiveis imediatamente no seletor do formulario e na importacao em lote
+- **8 arquivos frontend** + **1 edge function** editados
+- Apenas labels/textos visiveis ao usuario sao alterados
+- Nenhuma migracao de banco necessaria
