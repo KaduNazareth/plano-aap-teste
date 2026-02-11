@@ -157,9 +157,9 @@ export const ACAO_PERMISSION_MATRIX: Record<AcaoTipo, Record<AppRole, AcaoPermis
   obs_engajamento_solidez: buildRolePerms(
     CRUD_ALL, CRUD_PRG, CRUD_PRG, NONE, CRUD_ENT, NONE, NONE, NONE, NONE
   ),
-  // Observação – Implantação do Programa: Admin, Gerente, Coord Prog, GPI
+  // Observação – Implantação do Programa: Admin, Gerente, Coord Prog, CPed(view), GPI
   obs_implantacao_programa: buildRolePerms(
-    CRUD_ALL, CRUD_PRG, CRUD_PRG, NONE, CRUD_ENT, NONE, NONE, NONE, NONE
+    CRUD_ALL, CRUD_PRG, CRUD_PRG, VIEW_ENT, CRUD_ENT, NONE, NONE, NONE, NONE
   ),
   // Observação de Aula: TODOS
   observacao_aula: buildRolePerms(
@@ -169,9 +169,9 @@ export const ACAO_PERMISSION_MATRIX: Record<AcaoTipo, Record<AppRole, AcaoPermis
   obs_uso_dados: buildRolePerms(
     CRUD_ALL, CRUD_PRG, CRUD_PRG, CRUD_ENT, NONE, NONE, NONE, NONE, NONE
   ),
-  // Participa de Formações: Admin, Gerente, Coord Prog
+  // Participa de Formações: OCULTO para todos
   participa_formacoes: buildRolePerms(
-    CRUD_ALL, CRUD_PRG, CRUD_PRG, NONE, NONE, NONE, NONE, NONE, NONE
+    NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE
   ),
   // Qualidade Acomp Aula (Coordenador): Admin, Gerente, Coord Prog, Formador
   qualidade_acomp_aula: buildRolePerms(
