@@ -1,62 +1,50 @@
 
 
-## Mover "Acompanhamento de Formações" para dentro do gerenciamento da Formação
+## Atribuir ator diferente ao Acompanhamento de Formacao
 
 ### Problema atual
-Ao clicar no botao "Acompanhamento" de uma Formacao realizada, o sistema abre o formulario de criacao com campos pre-preenchidos e travados. Isso causa confusao porque o formulario de criacao e compartilhado com todos os tipos de acao.
+Quando o acompanhamento e agendado no dialog de gerenciamento, o sistema usa o mesmo `aap_id` da formacao original. O correto e que o ator do acompanhamento seja diferente do ator da formacao, e deve ser selecionado no momento do agendamento.
 
-### Nova abordagem
-O "Acompanhamento de Formacoes" sera criado automaticamente como etapa do gerenciamento da Formacao, quando o usuario marca a formacao como "realizada". O fluxo sera:
+### Alteracoes em `src/pages/admin/ProgramacaoPage.tsx`
 
-1. Usuario clica "Gerenciar" em uma Formacao prevista
-2. Marca como "Sim, realizada"
-3. Aparece uma opcao: "Agendar Acompanhamento de Formacao?"
-4. Se marcar sim, preenche apenas data e horarios do acompanhamento
-5. Ao confirmar, o sistema cria a programacao de acompanhamento automaticamente com todos os dados herdados da formacao original
+#### 1. Novo estado para o ator do acompanhamento
+- Adicionar estado `acompanhamentoAapId: string` para armazenar o ator selecionado
+- Resetar esse estado junto com os demais no `handleManage`
 
-### Alteracoes
+#### 2. Buscar atores elegiveis quando o checkbox de acompanhamento e marcado
+- Quando `agendarAcompanhamento` for ativado, buscar usuarios com roles N1-N5 (`admin`, `gestor`, `n3_coordenador_programa`, `n4_1_cped`, `n4_2_gpi`, `n5_formador`, `aap_inicial`, `aap_portugues`, `aap_matematica`) que:
+  - Pertencem a pelo menos um dos programas da formacao (`user_programas` ou `aap_programas`)
+  - Atuam na entidade da formacao (`user_entidades` ou `aap_escolas`)
+  - **Nao sao** o ator da formacao original (`aap_id` diferente)
+- Reutilizar os dados ja carregados em `aaps` (que contem AAPs com programas e escolas) e complementar com uma consulta adicional para users N1-N3 vinculados a entidade/programa
 
-#### 1. Remover botao "Acompanhamento" dos cards de Formacao realizada
-- Remover o botao com icone LinkIcon que aparece nos cards da visao calendario (linha ~1692) e na tabela da visao lista (linha ~1789)
-- Remover a funcao `handleCreateAcompanhamento` e o estado `formacaoOrigemId`
+#### 3. Exibir seletor de ator no formulario de acompanhamento
+- Dentro do bloco condicional `{agendarAcompanhamento && (...)}`, adicionar um `Select` com label "Ator Responsavel *" antes dos campos de data/horario
+- As opcoes mostram nome e cargo do usuario
+- O ator da formacao original e excluido da lista
 
-#### 2. Remover logica de `formacaoOrigemId` do formulario de criacao
-- Remover o banner informativo, o tipo travado e os campos `disabled={!!formacaoOrigemId}`
-- Remover as condicoes `if (formacaoOrigemId)` no `handleSubmit`
-- O formulario de criacao volta a funcionar normalmente apenas para os tipos criáveis diretamente
-
-#### 3. Adicionar opcao de acompanhamento no dialog de Gerenciamento
-- No dialog "Gerenciar Acao" (`isManageDialogOpen`), quando o tipo da acao for `formacao` e o usuario selecionar "Sim" (realizada):
-  - Exibir um checkbox: "Agendar Acompanhamento de Formacao"
-  - Se marcado, exibir campos: Data, Horario Inicio e Horario Fim
-  - Titulo sera gerado automaticamente: "Acompanhamento: [titulo da formacao]"
-
-#### 4. Criar acompanhamento automaticamente no `handleManageSubmit`
-- Quando a formacao for marcada como realizada e o checkbox de acompanhamento estiver ativo:
-  - Inserir nova `programacao` com tipo `acompanhamento_formacoes`, dados herdados da formacao (escola, aap, segmento, componente, ano_serie, programa), e `formacao_origem_id` preenchido
-  - Inserir `registro_acao` correspondente com status `agendada`
-  - Toast de sucesso indicando que o acompanhamento foi agendado
+#### 4. Validacao no submit
+- Na validacao do `handleManageSubmit`, verificar que `acompanhamentoAapId` esta preenchido quando `agendarAcompanhamento` e `true`
+- No insert de `programacoes` e `registros_acao` do acompanhamento, usar `acompanhamentoAapId` no lugar de `selectedProgramacao.aap_id`
 
 ### Detalhes tecnicos
 
-**Novos estados no componente:**
-- `agendarAcompanhamento: boolean` - se o usuario quer agendar acompanhamento
-- `acompanhamentoData: string` - data do acompanhamento
-- `acompanhamentoHorarioInicio: string` - horario inicio
-- `acompanhamentoHorarioFim: string` - horario fim
-
-**Arquivos modificados:**
-- `src/pages/admin/ProgramacaoPage.tsx` - unico arquivo alterado
-
-**Fluxo resumido:**
-
+**Novo estado:**
 ```text
-Formacao (prevista) 
-  -> Gerenciar 
-    -> "Foi realizada?" Sim 
-      -> [x] Agendar Acompanhamento? 
-        -> Data, Inicio, Fim 
-      -> Confirmar
-        -> Cria programacao de acompanhamento automaticamente
+acompanhamentoAapId: string  -- ID do ator selecionado para o acompanhamento
 ```
+
+**Lista de atores elegiveis:**
+- Consultar `user_roles` para roles: admin, gestor, n3_coordenador_programa, n4_1_cped, n4_2_gpi, n5_formador, aap_inicial, aap_portugues, aap_matematica
+- Cruzar com `user_programas`/`aap_programas` para filtrar por programa
+- Cruzar com `user_entidades`/`aap_escolas` para filtrar por entidade
+- Excluir o `aap_id` da formacao original da lista
+- Buscar nomes via `profiles`
+
+**Campos alterados no insert:**
+- `programacoes.aap_id` -> `acompanhamentoAapId`
+- `registros_acao.aap_id` -> `acompanhamentoAapId`
+
+**Arquivo modificado:**
+- `src/pages/admin/ProgramacaoPage.tsx` - unico arquivo alterado
 
