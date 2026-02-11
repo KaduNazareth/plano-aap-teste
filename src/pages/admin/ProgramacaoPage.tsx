@@ -3,7 +3,9 @@ import { Plus, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Cloc
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels, cargoLabels } from '@/data/mockData';
 import { StatusAcao, Segmento, ComponenteCurricular, NotaAvaliacao, notaAvaliacaoLabels } from '@/types';
-import { getCreatableAcoes, ACAO_TYPE_INFO, AcaoTipo, getAcaoLabel } from '@/config/acaoPermissions';
+import { getCreatableAcoes, ACAO_TYPE_INFO, AcaoTipo, getAcaoLabel, normalizeAcaoTipo } from '@/config/acaoPermissions';
+import { InstrumentForm } from '@/components/instruments/InstrumentForm';
+import { INSTRUMENT_FORM_TYPES } from '@/hooks/useInstrumentFields';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -89,6 +91,7 @@ interface ProgramacaoDB {
   motivo_cancelamento: string | null;
   programa: string[] | null;
   tags: string[] | null;
+  formacao_origem_id: string | null;
   created_at: string;
 }
 
@@ -186,6 +189,10 @@ export default function ProgramacaoPage() {
   const [observacoesFormacao, setObservacoesFormacao] = useState('');
   const [avancosFormacao, setAvancosFormacao] = useState('');
   const [dificuldadesFormacao, setDificuldadesFormacao] = useState('');
+  
+  // Estados para instrumento pedagógico (tipos sem presença nem avaliação por professor)
+  const [isInstrumentDialogOpen, setIsInstrumentDialogOpen] = useState(false);
+  const [instrumentResponses, setInstrumentResponses] = useState<Record<string, any>>({});
   
   const creatableAcoes = useMemo(() => {
     const role = profile?.role as import('@/contexts/AuthContext').AppRole | undefined;
@@ -735,6 +742,18 @@ export default function ProgramacaoPage() {
       return;
     }
     
+    // Se for tipo de instrumento pedagógico (sem presença/avaliação por professor) e a ação foi realizada
+    const INSTRUMENT_TYPE_SET = new Set<string>(INSTRUMENT_FORM_TYPES.map(t => t.value));
+    const PRESENCE_CHECK = new Set<string>(['formacao', 'lista_presenca', 'participa_formacoes']);
+    const AVALIACAO_CHECK = new Set<string>(['acompanhamento_aula', 'observacao_aula']);
+    const normalizedTipo = normalizeAcaoTipo(selectedProgramacao.tipo);
+    if (acaoRealizada && INSTRUMENT_TYPE_SET.has(normalizedTipo) && !PRESENCE_CHECK.has(selectedProgramacao.tipo) && !AVALIACAO_CHECK.has(selectedProgramacao.tipo)) {
+      setInstrumentResponses({});
+      setIsManageDialogOpen(false);
+      setIsInstrumentDialogOpen(true);
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -1181,6 +1200,94 @@ export default function ProgramacaoPage() {
     } catch (error) {
       console.error('Error saving presencas:', error);
       toast.error('Erro ao salvar presenças');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handler para salvar instrumento pedagógico
+  const handleSaveInstrument = async () => {
+    if (!selectedProgramacao || !user) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Atualizar status da programação
+      const { error: updateProgError } = await supabase
+        .from('programacoes')
+        .update({ status: 'realizada' })
+        .eq('id', selectedProgramacao.id);
+      
+      if (updateProgError) throw updateProgError;
+      
+      // Verificar se existe registro_acao
+      const { data: existingRegistro } = await supabase
+        .from('registros_acao')
+        .select('id')
+        .eq('programacao_id', selectedProgramacao.id)
+        .maybeSingle();
+      
+      let registroId: string;
+      
+      if (existingRegistro) {
+        const { error: updateRegistroError } = await supabase
+          .from('registros_acao')
+          .update({ status: 'realizada' })
+          .eq('id', existingRegistro.id);
+        if (updateRegistroError) throw updateRegistroError;
+        registroId = existingRegistro.id;
+      } else {
+        const { data: newRegistro, error: insertError } = await supabase
+          .from('registros_acao')
+          .insert({
+            aap_id: selectedProgramacao.aap_id,
+            ano_serie: selectedProgramacao.ano_serie,
+            componente: selectedProgramacao.componente,
+            data: selectedProgramacao.data,
+            escola_id: selectedProgramacao.escola_id,
+            programa: selectedProgramacao.programa,
+            programacao_id: selectedProgramacao.id,
+            segmento: selectedProgramacao.segmento,
+            tipo: selectedProgramacao.tipo,
+            status: 'realizada',
+            formacao_origem_id: selectedProgramacao.formacao_origem_id,
+          })
+          .select('id')
+          .single();
+        if (insertError) throw insertError;
+        registroId = newRegistro.id;
+      }
+      
+      // Salvar respostas do instrumento
+      const normalizedTipo = normalizeAcaoTipo(selectedProgramacao.tipo);
+      const { error: instrumentError } = await (supabase as any)
+        .from('instrument_responses')
+        .insert({
+          registro_acao_id: registroId,
+          professor_id: null,
+          escola_id: selectedProgramacao.escola_id,
+          aap_id: user.id,
+          form_type: normalizedTipo,
+          responses: instrumentResponses,
+          questoes_selecionadas: null,
+        });
+      
+      if (instrumentError) throw instrumentError;
+      
+      toast.success('Instrumento pedagógico salvo com sucesso!');
+      
+      setIsInstrumentDialogOpen(false);
+      setSelectedProgramacao(null);
+      setInstrumentResponses({});
+      
+      queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+      queryClient.invalidateQueries({ queryKey: ['programacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['instrument_responses'] });
+      
+      fetchProgramacoes();
+    } catch (error) {
+      console.error('Error saving instrument:', error);
+      toast.error('Erro ao salvar instrumento pedagógico');
     } finally {
       setIsSubmitting(false);
     }
@@ -2643,6 +2750,53 @@ onCheckedChange={(checked) => {
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Salvar Presenças'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Instrumento Pedagógico Dialog */}
+      <Dialog open={isInstrumentDialogOpen} onOpenChange={setIsInstrumentDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="text-primary" size={20} />
+              Instrumento Pedagógico
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProgramacao && (
+                <span>
+                  {selectedProgramacao.titulo} - {format(parseISO(selectedProgramacao.data), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProgramacao && (
+            <div className="space-y-6 mt-4">
+              <InstrumentForm
+                formType={normalizeAcaoTipo(selectedProgramacao.tipo)}
+                responses={instrumentResponses}
+                onResponseChange={(fieldKey, value) => setInstrumentResponses(prev => ({ ...prev, [fieldKey]: value }))}
+              />
+              
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsInstrumentDialogOpen(false);
+                    setIsManageDialogOpen(true);
+                  }}
+                >
+                  Voltar
+                </Button>
+                <Button 
+                  onClick={handleSaveInstrument} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Salvar Instrumento'}
                 </Button>
               </DialogFooter>
             </div>
