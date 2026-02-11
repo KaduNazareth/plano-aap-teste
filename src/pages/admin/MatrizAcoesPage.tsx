@@ -1,4 +1,5 @@
-import { Check, X, Eye, Pencil, Trash2, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X, Eye, Pencil, Trash2, Plus, FileText } from 'lucide-react';
 import {
   ACAO_TIPOS,
   ACAO_TYPE_INFO,
@@ -6,8 +7,32 @@ import {
   MAIN_ROLES,
   ROLE_LABELS,
   AcaoPermission,
+  AcaoTipo,
 } from '@/config/acaoPermissions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { InstrumentForm } from '@/components/instruments/InstrumentForm';
+import { INSTRUMENT_FORM_TYPES } from '@/hooks/useInstrumentFields';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const INSTRUMENT_TYPE_SET = new Set<string>(INSTRUMENT_FORM_TYPES.map(t => t.value));
+
+function getFormTypeForAcao(tipo: AcaoTipo): string | null {
+  if (INSTRUMENT_TYPE_SET.has(tipo)) return tipo;
+  return null;
+}
+
+function getFormLabel(formType: string): string {
+  const found = INSTRUMENT_FORM_TYPES.find(t => t.value === formType);
+  return found?.label || formType;
+}
 
 const scopeLabels: Record<string, string> = {
   all: 'Todos',
@@ -40,6 +65,8 @@ function PermissionCell({ perm }: { perm: AcaoPermission }) {
 }
 
 export default function MatrizAcoesPage() {
+  const [previewFormType, setPreviewFormType] = useState<string | null>(null);
+
   return (
     <div className="space-y-6">
       <div>
@@ -56,6 +83,7 @@ export default function MatrizAcoesPage() {
         <span className="flex items-center gap-1"><Pencil className="w-3.5 h-3.5 text-warning" /> Editar</span>
         <span className="flex items-center gap-1"><Trash2 className="w-3.5 h-3.5 text-error" /> Excluir</span>
         <span className="flex items-center gap-1"><X className="w-3.5 h-3.5 text-muted-foreground/40" /> Sem acesso</span>
+        <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5 text-primary" /> Formulário disponível</span>
       </div>
 
       <div className="overflow-x-auto border rounded-lg">
@@ -64,6 +92,9 @@ export default function MatrizAcoesPage() {
             <tr className="bg-muted/70">
               <th className="text-left p-3 font-semibold text-foreground min-w-[280px] sticky left-0 bg-muted/70 z-10">
                 Ação / Evento
+              </th>
+              <th className="p-2 text-center font-medium text-foreground min-w-[90px]">
+                <span className="text-xs">Formulário</span>
               </th>
               {MAIN_ROLES.map(role => (
                 <th key={role} className="p-2 text-center font-medium text-foreground min-w-[110px]">
@@ -77,6 +108,7 @@ export default function MatrizAcoesPage() {
               const info = ACAO_TYPE_INFO[tipo];
               const Icon = info.icon;
               const perms = ACAO_PERMISSION_MATRIX[tipo];
+              const formType = getFormTypeForAcao(tipo);
               return (
                 <tr key={tipo} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
                   <td className={`p-3 font-medium text-foreground sticky left-0 z-10 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}`}>
@@ -84,6 +116,21 @@ export default function MatrizAcoesPage() {
                       <Icon className="w-4 h-4 text-primary shrink-0" />
                       <span className="truncate">{info.label}</span>
                     </span>
+                  </td>
+                  <td className="p-2 text-center">
+                    {formType ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => setPreviewFormType(formType)}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Visualizar
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground/40 text-xs">—</span>
+                    )}
                   </td>
                   {MAIN_ROLES.map(role => (
                     <td key={role} className="p-2 text-center">
@@ -96,6 +143,32 @@ export default function MatrizAcoesPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Form Preview Dialog */}
+      <Dialog open={!!previewFormType} onOpenChange={(open) => !open && setPreviewFormType(null)}>
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {previewFormType && getFormLabel(previewFormType)}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 pr-4" style={{ maxHeight: '70vh' }}>
+            {previewFormType && (
+              <InstrumentForm
+                formType={previewFormType}
+                responses={{}}
+                onResponseChange={() => {}}
+                readOnly
+              />
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewFormType(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
