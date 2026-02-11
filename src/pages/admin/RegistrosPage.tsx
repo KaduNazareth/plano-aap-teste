@@ -847,7 +847,7 @@ export default function RegistrosPage() {
     },
     {
       key: 'aap',
-      header: 'AAP / Formador',
+      header: 'Consultor / Gestor / Formador',
       className: 'max-w-[120px]',
       render: (registro: RegistroAcaoDB) => (
         <div className="flex items-center gap-1.5">

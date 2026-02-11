@@ -36,9 +36,9 @@ interface Escola {
 }
 
 const tipoLabels: Record<AAPRole, string> = {
-  aap_inicial: 'AAP / Formador Anos Iniciais',
-  aap_portugues: 'AAP / Formador Língua Portuguesa',
-  aap_matematica: 'AAP / Formador Matemática',
+  aap_inicial: 'Consultor / Gestor / Formador Anos Iniciais',
+  aap_portugues: 'Consultor / Gestor / Formador Língua Portuguesa',
+  aap_matematica: 'Consultor / Gestor / Formador Matemática',
 };
 
 const programaLabels: Record<ProgramaType, string> = {
@@ -109,14 +109,14 @@ export default function AAPsPage() {
 
       if (error) {
         console.error('Error fetching AAPs:', error);
-        toast.error('Erro ao carregar AAPs');
+        toast.error('Erro ao carregar consultores/gestores/formadores');
         return;
       }
 
       setAapsList(data.users || []);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Erro ao carregar AAPs');
+      toast.error('Erro ao carregar consultores/gestores/formadores');
     } finally {
       setIsLoading(false);
     }
@@ -180,11 +180,11 @@ export default function AAPsPage() {
         });
 
         if (error || data?.error) {
-          toast.error(data?.error || 'Erro ao atualizar AAP');
+          toast.error(data?.error || 'Erro ao atualizar consultor/gestor/formador');
           return;
         }
 
-        toast.success('AAP atualizado com sucesso!');
+        toast.success('Consultor/Gestor/Formador atualizado com sucesso!');
       } else {
         if (!formData.senha) {
           toast.error('Senha é obrigatória para novos usuários');
@@ -205,25 +205,25 @@ export default function AAPsPage() {
         });
 
         if (error || data?.error) {
-          toast.error(data?.error || 'Erro ao cadastrar AAP');
+          toast.error(data?.error || 'Erro ao cadastrar consultor/gestor/formador');
           return;
         }
 
-        toast.success('AAP cadastrado com sucesso!');
+        toast.success('Consultor/Gestor/Formador cadastrado com sucesso!');
       }
 
       setIsDialogOpen(false);
       fetchAAPs();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Erro ao salvar AAP');
+      toast.error('Erro ao salvar consultor/gestor/formador');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este AAP? Esta ação não pode ser desfeita.')) {
+    if (!window.confirm('Tem certeza que deseja excluir este consultor/gestor/formador? Esta ação não pode ser desfeita.')) {
       return;
     }
 
@@ -233,15 +233,15 @@ export default function AAPsPage() {
       });
 
       if (error || data?.error) {
-        toast.error(data?.error || 'Erro ao excluir AAP');
+        toast.error(data?.error || 'Erro ao excluir consultor/gestor/formador');
         return;
       }
 
-      toast.success('AAP excluído com sucesso!');
+      toast.success('Consultor/Gestor/Formador excluído com sucesso!');
       fetchAAPs();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Erro ao excluir AAP');
+      toast.error('Erro ao excluir consultor/gestor/formador');
     }
   };
 
@@ -257,7 +257,7 @@ export default function AAPsPage() {
   const columns = [
     {
       key: 'nome',
-      header: 'AAP / Formador',
+      header: 'Consultor / Gestor / Formador',
       render: (aap: AAP) => (
         <div>
           <p className="font-medium text-foreground">{aap.nome}</p>
@@ -343,21 +343,21 @@ export default function AAPsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="page-header">AAPs / Formadores</h1>
-          <p className="page-subtitle">Gerencie os AAPs / Formadores do programa</p>
+          <h1 className="page-header">Consultores / Gestores / Formadores</h1>
+          <p className="page-subtitle">Gerencie os Consultores / Gestores / Formadores do programa</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <button onClick={() => handleOpenDialog()} className="btn-primary flex items-center gap-2">
               <Plus size={20} />
-              Novo AAP / Formador
+              Novo Consultor / Gestor / Formador
             </button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg w-[95vw] max-w-[95vw] sm:w-auto max-h-[85vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>
-                {editingAAP ? 'Editar AAP / Formador' : 'Novo AAP / Formador'}
+                {editingAAP ? 'Editar Consultor / Gestor / Formador' : 'Novo Consultor / Gestor / Formador'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -507,7 +507,7 @@ export default function AAPsPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar AAPs / Formadores..."
+          placeholder="Buscar Consultores / Gestores / Formadores..."
           className="input-field pl-11"
         />
       </div>
@@ -517,7 +517,7 @@ export default function AAPsPage() {
         data={filteredAAPs}
         columns={columns}
         keyExtractor={(aap) => aap.id}
-        emptyMessage="Nenhum AAP / Formador cadastrado"
+        emptyMessage="Nenhum Consultor / Gestor / Formador cadastrado"
         isLoading={isLoading}
       />
     </div>

@@ -187,7 +187,7 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
       }
       
       if (role && role.startsWith('aap_') && !programa) {
-        toast.error(`AAP / Formador ${user.nome} deve ter um programa definido`);
+        toast.error(`Consultor / Gestor / Formador ${user.nome} deve ter um programa definido`);
         return false;
       }
     }

@@ -228,7 +228,7 @@ function generateEmailHtml(stats: MonthlyStats, monthName: string, logoUrl: stri
                 <img src="${logoUrl}" alt="Parceiros da Educação" width="70" height="auto" style="display: block;" />
               </td>
               <td valign="middle" style="padding-left: 20px;">
-                <div style="color: white; font-size: 20px; font-weight: bold;">Relatório de Acompanhamento - AAPs/Formadores${programaLabel}</div>
+                <div style="color: white; font-size: 20px; font-weight: bold;">Relatório de Acompanhamento - Consultores/Gestores/Formadores${programaLabel}</div>
                 <div style="color: #93c5fd; font-size: 14px; margin-top: 6px;">${monthName}</div>
               </td>
             </tr>
@@ -295,7 +295,7 @@ function generateEmailHtml(stats: MonthlyStats, monthName: string, logoUrl: stri
           <!-- Desempenho por AAP -->
           ${stats.presencaPorAAP.length > 0 ? `
             <div style="background-color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-              <h3 style="color: #003875; font-size: 16px; margin: 0 0 16px 0; font-weight: 600;">Desempenho por AAP</h3>
+              <h3 style="color: #003875; font-size: 16px; margin: 0 0 16px 0; font-weight: 600;">Desempenho por Consultor/Gestor/Formador</h3>
               <table width="100%" cellpadding="8" cellspacing="0" border="0" style="font-size: 13px;">
                 <thead>
                   <tr style="background-color: #f1f5f9;">

@@ -162,7 +162,7 @@ export function ProgramacaoUploadDialog({ open, onOpenChange, escolas, aaps, onU
           const aapNome = String(row['AAP'] || row['aap'] || row['FORMADOR'] || row['formador'] || '').trim();
           const aap = findAapByNome(aapNome);
           if (!aap) {
-            errors.push(`AAP/Formador não encontrado: "${aapNome}"`);
+            errors.push(`Consultor/Gestor/Formador não encontrado: "${aapNome}"`);
           }
 
           // Para visitas, segmento, componente e ano_serie são opcionais
