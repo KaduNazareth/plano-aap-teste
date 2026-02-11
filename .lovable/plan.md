@@ -1,17 +1,18 @@
 
 
-## Alterar "Escolas" para "Entidades"
+## Alterar "Professores" para "Atores Educacionais" e "+ Novo Professor" para "+ Novo Ator"
 
-Alteracao simples em duas linhas no arquivo `src/pages/admin/EscolasPage.tsx`:
+Alteracao em 3 pontos no arquivo `src/pages/admin/ProfessoresPage.tsx`:
 
 ### Alteracoes
 
-**Arquivo: `src/pages/admin/EscolasPage.tsx` (linhas 326-329)**
+**Arquivo: `src/pages/admin/ProfessoresPage.tsx`**
 
-| De | Para |
-|----|------|
-| `Escolas` (titulo h1) | `Entidades` |
-| `{escolas.length} escolas cadastradas` (subtitulo) | `{escolas.length} entidades cadastradas` |
+| Linha | De | Para |
+|-------|-----|------|
+| 701 | `Professores` (titulo h1) | `Atores Educacionais` |
+| 703 | `{totalProfessores} professores e {totalCoordenadores} coordenadores ativos` | `{totalProfessores} professores e {totalCoordenadores} coordenadores ativos` (sem alteracao -- o subtitulo ja descreve corretamente os totais por cargo) |
+| 766 | `Novo Professor` (botao) | `Novo Ator` |
 
-Nenhuma outra alteracao necessaria -- o restante da pagina (variaveis internas, queries, etc.) permanece inalterado.
+Nenhuma outra alteracao necessaria -- variaveis internas, queries e dialogos permanecem inalterados.
 
