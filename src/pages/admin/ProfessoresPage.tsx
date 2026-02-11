@@ -71,6 +71,9 @@ const componenteLabels: Record<string, string> = {
 const cargoLabels: Record<string, string> = {
   professor: 'Professor',
   coordenador: 'Coordenador',
+  vice_diretor: 'Vice-Diretor',
+  diretor: 'Diretor',
+  equipe_tecnica_sme: 'Equipe Técnica (SME)',
 };
 
 const anoSerieOptions: Record<string, string[]> = {
@@ -338,6 +341,13 @@ export default function ProfessoresPage() {
   const cargoMap: Record<string, string> = {
     'professor': 'professor',
     'coordenador': 'coordenador',
+    'vice-diretor': 'vice_diretor',
+    'vice_diretor': 'vice_diretor',
+    'diretor': 'diretor',
+    'equipe tecnica': 'equipe_tecnica_sme',
+    'equipe_tecnica_sme': 'equipe_tecnica_sme',
+    'equipe técnica': 'equipe_tecnica_sme',
+    'equipe técnica (sme)': 'equipe_tecnica_sme',
   };
 
   const programaMap: Record<string, ProgramaType> = {
@@ -716,7 +726,7 @@ export default function ProfessoresPage() {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Importar Professores / Coordenadores</DialogTitle>
+                    <DialogTitle>Importar Atores Educacionais</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
