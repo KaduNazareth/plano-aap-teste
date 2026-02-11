@@ -1103,9 +1103,65 @@ export default function ProgramacaoPage() {
       if (presencasError) throw presencasError;
       
       const presentes = presencaList.filter(p => p.presente).length;
-      toast.success('Presenças registradas com sucesso!', {
-        description: `${presentes} de ${presencaList.length} professor(es) presente(s)`
-      });
+      
+      // Criar acompanhamento de formação se solicitado
+      let acompanhamentoCriado = false;
+      if (agendarAcompanhamento && selectedProgramacao.tipo === 'formacao' && acompanhamentoAapId) {
+        const { data: acompProg, error: acompProgError } = await supabase.from('programacoes').insert({
+          tipo: 'acompanhamento_formacoes',
+          titulo: `Acompanhamento: ${selectedProgramacao.titulo}`,
+          data: acompanhamentoData,
+          horario_inicio: acompanhamentoHorarioInicio,
+          horario_fim: acompanhamentoHorarioFim,
+          escola_id: selectedProgramacao.escola_id,
+          aap_id: acompanhamentoAapId,
+          segmento: selectedProgramacao.segmento,
+          componente: selectedProgramacao.componente,
+          ano_serie: selectedProgramacao.ano_serie,
+          status: 'prevista',
+          programa: selectedProgramacao.programa,
+          formacao_origem_id: selectedProgramacao.id,
+          created_by: user?.id,
+        }).select().single();
+
+        if (acompProgError) {
+          console.error('Error creating acompanhamento:', acompProgError);
+          toast.error('Presenças salvas, mas erro ao criar acompanhamento');
+        } else if (acompProg) {
+          await supabase.from('registros_acao').insert({
+            aap_id: acompanhamentoAapId,
+            ano_serie: selectedProgramacao.ano_serie,
+            componente: selectedProgramacao.componente,
+            data: acompanhamentoData,
+            escola_id: selectedProgramacao.escola_id,
+            programa: selectedProgramacao.programa,
+            programacao_id: acompProg.id,
+            segmento: selectedProgramacao.segmento,
+            tipo: 'acompanhamento_formacoes',
+            status: 'agendada',
+            formacao_origem_id: selectedProgramacao.id,
+          });
+          acompanhamentoCriado = true;
+        }
+      }
+
+      if (acompanhamentoCriado) {
+        toast.success('Presenças registradas e acompanhamento agendado!', {
+          description: `${presentes} presente(s). Acompanhamento em ${format(new Date(acompanhamentoData), "dd/MM/yyyy", { locale: ptBR })}`
+        });
+      } else {
+        toast.success('Presenças registradas com sucesso!', {
+          description: `${presentes} de ${presencaList.length} professor(es) presente(s)`
+        });
+      }
+      
+      // Resetar estados de acompanhamento
+      setAgendarAcompanhamento(false);
+      setAcompanhamentoAapId('');
+      setAcompanhamentoData('');
+      setAcompanhamentoHorarioInicio('');
+      setAcompanhamentoHorarioFim('');
+      setAtoresElegiveis([]);
       
       setIsPresencaDialogOpen(false);
       setSelectedProgramacao(null);
