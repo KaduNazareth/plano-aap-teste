@@ -698,7 +698,7 @@ export default function RelatoriosPage() {
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Relatório de Acompanhamento - AAPs/Formadores', logoX + logoWidth + 5, logoY + 5);
+      pdf.text('Relatório de Acompanhamento - Consultores/Gestores/Formadores', logoX + logoWidth + 5, logoY + 5);
       
       // Add subtitle
       pdf.setFontSize(8);
@@ -765,7 +765,7 @@ export default function RelatoriosPage() {
           pdf.setTextColor(255, 255, 255);
           pdf.setFontSize(14);
           pdf.setFont('helvetica', 'bold');
-          pdf.text('Relatório de Acompanhamento - AAPs/Formadores', margin, 18);
+          pdf.text('Relatório de Acompanhamento - Consultores/Gestores/Formadores', margin, 18);
           
           currentY = contentStartY;
         }

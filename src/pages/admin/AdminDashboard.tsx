@@ -530,7 +530,7 @@ export default function AdminDashboard() {
         {!isAAP && (
           <div data-tour="stat-aaps">
             <StatCard
-              title="AAPs / Formadores"
+              title="Consultores / Gestores / Formadores"
               value={totalAAPs}
               icon={<UserCheck size={24} />}
               href="/aaps"

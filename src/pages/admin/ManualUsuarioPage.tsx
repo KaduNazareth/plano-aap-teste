@@ -68,9 +68,9 @@ const sections: ManualSection[] = [
   },
   {
     icon: UserCheck,
-    title: '8. AAPs / Formadores',
-    description: 'Gerencie os Agentes de Acompanhamento Pedagógico e Formadores do sistema. Cada AAP possui escolas e programas vinculados que determinam seu escopo de atuação. O cadastro inclui criação de credenciais de acesso ao sistema.',
-    tips: ['AAPs só visualizam dados das escolas e programas a que estão vinculados.', 'O perfil de acesso determina quais módulos estarão disponíveis.'],
+    title: '8. Consultores / Gestores / Formadores',
+    description: 'Gerencie os Consultores, Gestores e Formadores do sistema. Cada um possui escolas e programas vinculados que determinam seu escopo de atuação. O cadastro inclui criação de credenciais de acesso ao sistema.',
+    tips: ['Consultores/Gestores/Formadores só visualizam dados das escolas e programas a que estão vinculados.', 'O perfil de acesso determina quais módulos estarão disponíveis.'],
     screenshot: '/manual/screenshot-aaps.png',
   },
   {

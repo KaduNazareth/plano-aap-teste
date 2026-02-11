@@ -28,7 +28,7 @@ const adminMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: School, label: 'Escola / Regional / Rede', path: '/escolas' },
   { icon: Users, label: 'Atores Educacionais', path: '/professores' },
-  { icon: UserCheck, label: 'AAPs / Formadores', path: '/aaps' },
+  { icon: UserCheck, label: 'Consultor / Gestor / Formador', path: '/aaps' },
   { icon: Calendar, label: 'Programação', path: '/programacao' },
   { icon: ClipboardList, label: 'Registros', path: '/registros' },
   { icon: TrendingUp, label: 'Evolução Professor', path: '/evolucao-professor' },
@@ -48,7 +48,7 @@ const managerMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: School, label: 'Escola / Regional / Rede', path: '/escolas' },
   { icon: Users, label: 'Atores Educacionais', path: '/professores' },
-  { icon: UserCheck, label: 'AAPs / Formadores', path: '/aaps' },
+  { icon: UserCheck, label: 'Consultor / Gestor / Formador', path: '/aaps' },
   { icon: Calendar, label: 'Programação', path: '/programacao' },
   { icon: ClipboardList, label: 'Registros', path: '/registros' },
   { icon: TrendingUp, label: 'Evolução Professor', path: '/evolucao-professor' },
@@ -119,9 +119,9 @@ const roleLabels: Record<string, string> = {
   n7_professor: 'Professor',
   n8_equipe_tecnica: 'Equipe Técnica (SME)',
   // Legacy
-  aap_inicial: 'AAP / Formador Anos Iniciais',
-  aap_portugues: 'AAP / Formador Língua Portuguesa',
-  aap_matematica: 'AAP / Formador Matemática',
+  aap_inicial: 'Consultor / Gestor / Formador Anos Iniciais',
+  aap_portugues: 'Consultor / Gestor / Formador Língua Portuguesa',
+  aap_matematica: 'Consultor / Gestor / Formador Matemática',
 };
 
 function SidebarContent() {
