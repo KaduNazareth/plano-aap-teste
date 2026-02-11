@@ -146,13 +146,13 @@ export default function MatrizAcoesPage() {
 
       {/* Form Preview Dialog */}
       <Dialog open={!!previewFormType} onOpenChange={(open) => !open && setPreviewFormType(null)}>
-        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-3xl w-[95vw] h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {previewFormType && getFormLabel(previewFormType)}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 pr-4" style={{ maxHeight: '70vh' }}>
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             {previewFormType && (
               <InstrumentForm
                 formType={previewFormType}
