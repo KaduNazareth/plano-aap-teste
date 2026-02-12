@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { EvolucaoMatrix } from '@/components/evolucao/EvolucaoMatrix';
 import { EvolucaoObservacoes } from '@/components/evolucao/EvolucaoObservacoes';
-import { EvolucaoPdfContent } from '@/components/evolucao/EvolucaoPdfContent';
+import { EvolucaoPdfSection1, EvolucaoPdfSection2, EvolucaoPdfSection3 } from '@/components/evolucao/EvolucaoPdfContent';
+import type { EvolucaoPdfContentProps } from '@/components/evolucao/EvolucaoPdfContent';
 import { EvolucaoLineChart } from '@/components/evolucao/EvolucaoLineChart';
 import type { DynamicAvaliacao, DimensionGroup } from '@/components/evolucao/EvolucaoLineChart';
 import type { InstrumentField } from '@/hooks/useInstrumentFields';
@@ -283,138 +284,139 @@ export default function EvolucaoProfessorPage() {
     toast.info('Gerando PDF...');
     
     try {
-      const pdfContainer = document.createElement('div');
-      pdfContainer.style.position = 'absolute';
-      pdfContainer.style.left = '-9999px';
-      pdfContainer.style.top = '0';
-      pdfContainer.style.width = '1000px';
-      pdfContainer.style.minWidth = '1000px';
-      pdfContainer.style.backgroundColor = '#ffffff';
-      document.body.appendChild(pdfContainer);
-      
-      const root = createRoot(pdfContainer);
-      root.render(
-        <EvolucaoPdfContent
-          professor={selectedProfessor}
-          escola={selectedEscola}
-          avaliacoes={filteredAvaliacoes}
-          dimensoesLabels={dimensoesLabels}
-          dimensoesKeys={dimensoesKeys}
-          componenteLabels={componenteLabels}
-          segmentoLabels={segmentoLabels}
-          textFieldLabels={textFieldLabels}
-          scaleMax={scaleMax}
-        />
-      );
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      const pdfProps: EvolucaoPdfContentProps = {
+        professor: selectedProfessor,
+        escola: selectedEscola,
+        avaliacoes: filteredAvaliacoes,
+        dimensoesLabels,
+        dimensoesKeys,
+        componenteLabels,
+        segmentoLabels,
+        textFieldLabels,
+        scaleMax,
+      };
+
+      const sections = [
+        { Component: EvolucaoPdfSection1, label: 'Evolução por Visita' },
+        { Component: EvolucaoPdfSection2, label: 'Matriz de Evolução' },
+        { Component: EvolucaoPdfSection3, label: 'Observações' },
+      ];
+
       const a4Width = 210;
       const a4Height = 297;
-      const margin = 10;
-      const headerHeight = 25;
+      const margin = 8;
+      const headerHeight = 20;
       const contentWidth = a4Width - (margin * 2);
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
-      // Header
-      pdf.setFillColor(0, 56, 117);
-      pdf.rect(0, 0, a4Width, headerHeight, 'F');
-      
-      const logoHeight = 10;
-      const logoWidth = 25;
-      const logoX = margin;
-      const logoY = 3;
-      
+      const contentStartY = headerHeight + 4;
+      const availableHeight = a4Height - contentStartY - margin;
+
+      // Pre-load logo
+      let logoImg: HTMLImageElement | null = null;
       try {
-        const logoImg = new Image();
+        logoImg = new Image();
         logoImg.crossOrigin = 'anonymous';
-        const logoModule = await import('@/assets/pe-logo-branco.png');
+        const logoModule = await import('@/assets/pe-logo-branco-horizontal.png');
         logoImg.src = logoModule.default;
-        
         await new Promise((resolve, reject) => {
-          logoImg.onload = resolve;
-          logoImg.onerror = reject;
+          logoImg!.onload = resolve;
+          logoImg!.onerror = reject;
           setTimeout(reject, 3000);
         });
-        
-        pdf.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
-      } catch (logoError) {
-        console.warn('Could not load logo:', logoError);
-      }
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Histórico — Observação de Aula', logoX + logoWidth + 5, logoY + 5);
-      
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
+      } catch { logoImg = null; }
+
       const periodLabel = selectedMonth !== '0' 
         ? `${monthOptions.find(m => m.value === selectedMonth)?.label}/${selectedYear}`
         : selectedYear;
-      const dateRange = filteredAvaliacoes.length > 0 
-        ? `${new Date(filteredAvaliacoes[0].data).toLocaleDateString('pt-BR')} a ${new Date(filteredAvaliacoes[filteredAvaliacoes.length - 1].data).toLocaleDateString('pt-BR')}`
-        : '';
-      pdf.text(`Professor: ${selectedProfessor.nome} | Período: ${periodLabel} | ${dateRange}`, logoX + logoWidth + 5, logoY + 10);
-      
-      const canvas = await html2canvas(pdfContainer, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 1000,
-        windowWidth: 1000,
-      });
-      
-      root.unmount();
-      document.body.removeChild(pdfContainer);
-      
-      const imgData = canvas.toDataURL('image/png');
-      
-      const contentStartY = headerHeight + margin;
-      const availableHeight = a4Height - contentStartY - margin;
-      
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      
-      const scale = contentWidth / (imgWidth / 2);
-      const scaledHeight = (imgHeight / 2) * scale;
-      
-      let sourceY = 0;
-      let pageNumber = 1;
-      const sourceSliceHeight = (availableHeight / scale) * 2;
-      
-      while (sourceY < imgHeight) {
-        if (pageNumber > 1) {
-          pdf.addPage();
-          pdf.setFillColor(0, 56, 117);
-          pdf.rect(0, 0, a4Width, headerHeight, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Histórico — Observação de Aula (continuação)', margin, 15);
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const addHeader = (isFirst: boolean) => {
+        pdf.setFillColor(26, 58, 92); // #1a3a5c
+        pdf.rect(0, 0, a4Width, headerHeight, 'F');
+        
+        if (logoImg) {
+          const logoW = 40;
+          const logoH = 10;
+          pdf.addImage(logoImg, 'PNG', margin, (headerHeight - logoH) / 2, logoW, logoH);
         }
+
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'bold');
+        const titleX = logoImg ? margin + 44 : margin;
+        pdf.text('Evolução do Professor', titleX, 8);
         
-        const sliceCanvas = document.createElement('canvas');
-        const ctx = sliceCanvas.getContext('2d');
-        const actualSliceHeight = Math.min(sourceSliceHeight, imgHeight - sourceY);
-        sliceCanvas.width = imgWidth;
-        sliceCanvas.height = actualSliceHeight;
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${selectedProfessor!.nome} | ${selectedEscola?.nome || ''} | ${periodLabel}`, titleX, 13);
         
-        if (ctx) {
-          ctx.drawImage(canvas, 0, sourceY, imgWidth, actualSliceHeight, 0, 0, imgWidth, actualSliceHeight);
-          const sliceImgData = sliceCanvas.toDataURL('image/png');
-          const sliceScaledHeight = (actualSliceHeight / 2) * scale;
-          pdf.addImage(sliceImgData, 'PNG', margin, contentStartY, contentWidth, sliceScaledHeight);
+        const dateStr = new Date().toLocaleDateString('pt-BR');
+        pdf.text(`Gerado em ${dateStr}`, a4Width - margin - pdf.getTextWidth(`Gerado em ${dateStr}`), 13);
+      };
+
+      let isFirstPage = true;
+
+      for (const { Component } of sections) {
+        // Create offscreen container
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '1000px';
+        container.style.backgroundColor = '#ffffff';
+        document.body.appendChild(container);
+
+        const root = createRoot(container);
+        root.render(<Component {...pdfProps} />);
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Check if section rendered anything
+        if (container.offsetHeight < 10) {
+          root.unmount();
+          document.body.removeChild(container);
+          continue;
         }
-        
-        sourceY += sourceSliceHeight;
-        pageNumber++;
+
+        const canvas = await html2canvas(container, {
+          scale: 1.5, // Lower scale for smaller file size
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: 1000,
+          windowWidth: 1000,
+        });
+
+        root.unmount();
+        document.body.removeChild(container);
+
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const scaleFactor = contentWidth / (imgWidth / 1.5);
+        const sourceSliceHeight = (availableHeight / scaleFactor) * 1.5;
+
+        let sourceY = 0;
+        while (sourceY < imgHeight) {
+          if (!isFirstPage) {
+            pdf.addPage();
+          }
+          addHeader(isFirstPage);
+          isFirstPage = false;
+
+          const sliceCanvas = document.createElement('canvas');
+          const ctx = sliceCanvas.getContext('2d');
+          const actualSliceHeight = Math.min(sourceSliceHeight, imgHeight - sourceY);
+          sliceCanvas.width = imgWidth;
+          sliceCanvas.height = actualSliceHeight;
+          
+          if (ctx) {
+            ctx.drawImage(canvas, 0, sourceY, imgWidth, actualSliceHeight, 0, 0, imgWidth, actualSliceHeight);
+            const sliceImgData = sliceCanvas.toDataURL('image/jpeg', 0.85);
+            const sliceScaledHeight = (actualSliceHeight / 1.5) * scaleFactor;
+            pdf.addImage(sliceImgData, 'JPEG', margin, contentStartY, contentWidth, sliceScaledHeight);
+          }
+          
+          sourceY += sourceSliceHeight;
+        }
       }
       
       pdf.save(`evolucao_professor_${selectedProfessor.nome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
