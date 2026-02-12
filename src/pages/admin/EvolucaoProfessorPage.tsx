@@ -335,15 +335,18 @@ export default function EvolucaoProfessorPage() {
         pdf.rect(0, 0, a4Width, headerHeight, 'F');
         
         if (logoImg) {
-          const logoW = 40;
-          const logoH = 10;
+          // Maintain original aspect ratio of horizontal logo
+          const originalRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+          const logoH = 8;
+          const logoW = logoH * originalRatio;
           pdf.addImage(logoImg, 'PNG', margin, (headerHeight - logoH) / 2, logoW, logoH);
         }
 
         pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'bold');
-        const titleX = logoImg ? margin + 44 : margin;
+        const logoRenderedW = logoImg ? (8 * (logoImg.naturalWidth / logoImg.naturalHeight)) : 0;
+        const titleX = logoImg ? margin + logoRenderedW + 4 : margin;
         pdf.text('Evolução do Professor', titleX, 8);
         
         pdf.setFontSize(7);
