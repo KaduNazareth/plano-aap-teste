@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { isValidEmail, isValidUUID, isValidPhone, isValidPassword, sanitizeString, validateUUIDArray, validateProgramas } from '../_shared/validation.ts';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
 const MANAGER_ROLES = ['admin', 'gestor', 'n3_coordenador_programa'];
 const OPERATIONAL_ROLES = ['n4_1_cped', 'n4_2_gpi', 'n5_formador', 'aap_inicial', 'aap_portugues', 'aap_matematica'];
@@ -8,6 +10,12 @@ const ALL_MANAGEABLE_ROLES = [
   'n6_coord_pedagogico', 'n7_professor', 'n8_equipe_tecnica',
   'aap_inicial', 'aap_portugues', 'aap_matematica',
 ];
+
+function jsonResponse(body: object, status: number, corsHeaders: Record<string, string>) {
+  return new Response(JSON.stringify(body), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -27,9 +35,7 @@ Deno.serve(async (req) => {
     // Verify requesting user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Não autorizado' }, 401, corsHeaders);
     }
 
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
@@ -40,9 +46,7 @@ Deno.serve(async (req) => {
     
     const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !requestingUser) {
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Não autorizado' }, 401, corsHeaders);
     }
 
     // Check requester role using helper functions
@@ -50,9 +54,12 @@ Deno.serve(async (req) => {
     const { data: isManager } = await supabaseAdmin.rpc('is_manager', { _user_id: requestingUser.id });
     
     if (!isAdmin && !isManager) {
-      return new Response(JSON.stringify({ error: 'Apenas administradores e gestores podem gerenciar usuários operacionais' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Apenas administradores e gestores podem gerenciar usuários operacionais' }, 403, corsHeaders);
+    }
+
+    // Rate limit: 20 requests per minute per user
+    if (!checkRateLimit(`manage-aap:${requestingUser.id}`, 20, 60_000)) {
+      return jsonResponse({ error: 'Limite de requisições excedido. Aguarde um momento.' }, 429, corsHeaders);
     }
 
     // Get requester's programs
@@ -63,27 +70,55 @@ Deno.serve(async (req) => {
         .select('programa')
         .eq('user_id', requestingUser.id);
       requesterProgramas = programas?.map(p => p.programa) || [];
-      console.log('Requester programas:', requesterProgramas);
     }
 
     const { action, ...data } = await req.json();
-    console.log('Action:', action, 'Data:', data);
 
     switch (action) {
       case 'create': {
         const { email, password, nome, telefone, role, escolasIds, programas } = data;
-        
-        if (!password || password.length < 8) {
-          return new Response(JSON.stringify({ error: 'A senha deve ter pelo menos 8 caracteres' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+
+        // Validate email
+        if (!email || !isValidEmail(email)) {
+          return jsonResponse({ error: 'E-mail inválido' }, 400, corsHeaders);
+        }
+
+        // Validate password
+        const pwCheck = isValidPassword(password);
+        if (!pwCheck.valid) {
+          return jsonResponse({ error: pwCheck.error }, 400, corsHeaders);
+        }
+
+        // Validate nome
+        if (!nome || typeof nome !== 'string' || nome.trim().length === 0) {
+          return jsonResponse({ error: 'Nome é obrigatório' }, 400, corsHeaders);
+        }
+        const sanitizedNome = sanitizeString(nome, 255);
+
+        // Validate telefone
+        if (telefone && !isValidPhone(telefone)) {
+          return jsonResponse({ error: 'Telefone inválido' }, 400, corsHeaders);
         }
         
         // Validate role is manageable
         if (role && !isAdmin && !ALL_MANAGEABLE_ROLES.includes(role)) {
-          return new Response(JSON.stringify({ error: 'Você não pode criar usuários com este papel' }), {
-            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: 'Você não pode criar usuários com este papel' }, 403, corsHeaders);
+        }
+
+        // Validate programas
+        if (programas !== undefined) {
+          const validProgramas = validateProgramas(programas);
+          if (validProgramas === null) {
+            return jsonResponse({ error: 'Programas inválidos' }, 400, corsHeaders);
+          }
+        }
+
+        // Validate escolasIds
+        if (escolasIds !== undefined) {
+          const validIds = validateUUIDArray(escolasIds);
+          if (validIds === null) {
+            return jsonResponse({ error: 'IDs de escola inválidos' }, 400, corsHeaders);
+          }
         }
 
         // If not admin, validate program scope
@@ -91,25 +126,21 @@ Deno.serve(async (req) => {
           const userProgramas = programas || ['escolas'];
           const hasValidPrograma = userProgramas.some((p: string) => requesterProgramas.includes(p));
           if (!hasValidPrograma) {
-            return new Response(JSON.stringify({ error: 'Você só pode criar usuários para seus programas' }), {
-              status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: 'Você só pode criar usuários para seus programas' }, 403, corsHeaders);
           }
         }
         
         // Create user
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email, password, email_confirm: true, user_metadata: { nome }
+          email, password, email_confirm: true, user_metadata: { nome: sanitizedNome }
         });
 
         if (createError) {
-          return new Response(JSON.stringify({ error: createError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: createError.message }, 400, corsHeaders);
         }
 
         // Update profile
-        await supabaseAdmin.from('profiles').update({ nome, telefone }).eq('id', newUser.user.id);
+        await supabaseAdmin.from('profiles').update({ nome: sanitizedNome, telefone: telefone ? sanitizeString(telefone, 20) : null }).eq('id', newUser.user.id);
 
         // Assign role
         await supabaseAdmin.from('user_roles').insert({ user_id: newUser.user.id, role });
@@ -162,15 +193,46 @@ Deno.serve(async (req) => {
           }
         }
 
-        return new Response(JSON.stringify({ 
+        return jsonResponse({ 
           success: true, user: { id: newUser.user.id, email: newUser.user.email } 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        }, 200, corsHeaders);
       }
 
       case 'update': {
         const { userId, email, password, nome, telefone, role, escolasIds, programas } = data;
+
+        if (!userId || !isValidUUID(userId)) {
+          return jsonResponse({ error: 'User ID inválido' }, 400, corsHeaders);
+        }
+
+        if (email && !isValidEmail(email)) {
+          return jsonResponse({ error: 'E-mail inválido' }, 400, corsHeaders);
+        }
+
+        if (password) {
+          const pwCheck = isValidPassword(password);
+          if (!pwCheck.valid) {
+            return jsonResponse({ error: pwCheck.error }, 400, corsHeaders);
+          }
+        }
+
+        if (telefone !== undefined && telefone !== null && telefone !== '' && !isValidPhone(telefone)) {
+          return jsonResponse({ error: 'Telefone inválido' }, 400, corsHeaders);
+        }
+
+        if (programas !== undefined) {
+          const validProgramas = validateProgramas(programas);
+          if (validProgramas === null) {
+            return jsonResponse({ error: 'Programas inválidos' }, 400, corsHeaders);
+          }
+        }
+
+        if (escolasIds !== undefined) {
+          const validIds = validateUUIDArray(escolasIds);
+          if (validIds === null) {
+            return jsonResponse({ error: 'IDs de escola inválidos' }, 400, corsHeaders);
+          }
+        }
 
         // If not admin, validate scope
         if (!isAdmin) {
@@ -183,9 +245,7 @@ Deno.serve(async (req) => {
           const canManage = targetProgramaList.some((p: string) => requesterProgramas.includes(p));
           
           if (!canManage) {
-            return new Response(JSON.stringify({ error: 'Você não pode editar usuários de outros programas' }), {
-              status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: 'Você não pode editar usuários de outros programas' }, 403, corsHeaders);
           }
         }
 
@@ -197,15 +257,14 @@ Deno.serve(async (req) => {
           
           const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(userId, updateData);
           if (updateUserError) {
-            return new Response(JSON.stringify({ error: updateUserError.message }), {
-              status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: updateUserError.message }, 400, corsHeaders);
           }
         }
 
         // Update profile
+        const sanitizedNome = nome ? sanitizeString(nome, 255) : nome;
         await supabaseAdmin.from('profiles')
-          .update({ nome, telefone, email: email || undefined })
+          .update({ nome: sanitizedNome, telefone: telefone ? sanitizeString(telefone, 20) : telefone, email: email || undefined })
           .eq('id', userId);
 
         // Update role
@@ -216,7 +275,6 @@ Deno.serve(async (req) => {
 
         // Update programas
         if (isAdmin && programas !== undefined) {
-          // Clear and re-insert user_programas
           await supabaseAdmin.from('user_programas').delete().eq('user_id', userId);
           if (programas.length > 0) {
             const assignments = programas.map((programa: string) => ({ user_id: userId, programa }));
@@ -239,7 +297,6 @@ Deno.serve(async (req) => {
 
         // Update entidades (schools)
         if (escolasIds !== undefined) {
-          // Clear and re-insert user_entidades
           await supabaseAdmin.from('user_entidades').delete().eq('user_id', userId);
           await supabaseAdmin.from('aap_escolas').delete().eq('aap_user_id', userId);
           
@@ -269,13 +326,15 @@ Deno.serve(async (req) => {
           }
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
       case 'delete': {
         const { userId } = data;
+
+        if (!userId || !isValidUUID(userId)) {
+          return jsonResponse({ error: 'User ID inválido' }, 400, corsHeaders);
+        }
 
         // If not admin, validate scope
         if (!isAdmin) {
@@ -288,22 +347,16 @@ Deno.serve(async (req) => {
           const canManage = targetProgramaList.some((p: string) => requesterProgramas.includes(p));
           
           if (!canManage) {
-            return new Response(JSON.stringify({ error: 'Você não pode excluir usuários de outros programas' }), {
-              status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: 'Você não pode excluir usuários de outros programas' }, 403, corsHeaders);
           }
         }
 
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         if (deleteError) {
-          return new Response(JSON.stringify({ error: deleteError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: deleteError.message }, 400, corsHeaders);
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
       case 'list': {
@@ -316,9 +369,7 @@ Deno.serve(async (req) => {
           .in('role', rolesToList);
 
         if (rolesError) {
-          return new Response(JSON.stringify({ error: rolesError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: rolesError.message }, 400, corsHeaders);
         }
 
         let filteredUserRoles = userRoles || [];
@@ -346,9 +397,7 @@ Deno.serve(async (req) => {
         const userIds = filteredUserRoles.map(r => r.user_id);
         
         if (userIds.length === 0) {
-          return new Response(JSON.stringify({ users: [] }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ users: [] }, 200, corsHeaders);
         }
 
         // Fetch profiles, entidades, programas in parallel
@@ -379,22 +428,15 @@ Deno.serve(async (req) => {
           };
         }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
-        return new Response(JSON.stringify({ users }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ users }, 200, corsHeaders);
       }
 
       default:
-        return new Response(JSON.stringify({ error: 'Ação inválida' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ error: 'Ação inválida' }, 400, corsHeaders);
     }
   } catch (error) {
     console.error('Edge function error:', error);
     const corsHeaders = getCorsHeaders(req);
-    const message = error instanceof Error ? error.message : 'Erro interno do servidor';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Erro interno do servidor' }, 500, corsHeaders);
   }
 });

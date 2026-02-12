@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { isValidEmail, isValidUUID, isValidPhone, isValidPassword, sanitizeString, validateUUIDArray, validateProgramas } from '../_shared/validation.ts';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
 // Valid roles for the N1-N8 hierarchy
 const ALL_ROLES = [
@@ -37,6 +39,12 @@ function canManagerManageRole(requesterRole: string, targetRole: string): boolea
   return false;
 }
 
+function jsonResponse(body: object, status: number, corsHeaders: Record<string, string>) {
+  return new Response(JSON.stringify(body), {
+    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   
@@ -54,27 +62,26 @@ Deno.serve(async (req) => {
     // Verify requesting user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Unauthorized' }, 401, corsHeaders);
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
     if (authError || !requestingUser) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Invalid token' }, 401, corsHeaders);
     }
 
     const requesterRole = await getRequesterRole(supabaseAdmin, requestingUser.id);
     
-    // Only admins can use this endpoint (manage-users is for admin user management)
+    // Only admins can use this endpoint
     if (requesterRole !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Apenas administradores podem gerenciar usuários por esta função' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'Apenas administradores podem gerenciar usuários por esta função' }, 403, corsHeaders);
+    }
+
+    // Rate limit: 20 requests per minute per user
+    if (!checkRateLimit(`manage-users:${requestingUser.id}`, 20, 60_000)) {
+      return jsonResponse({ error: 'Limite de requisições excedido. Aguarde um momento.' }, 429, corsHeaders);
     }
 
     const { action, ...params } = await req.json();
@@ -84,39 +91,62 @@ Deno.serve(async (req) => {
       case 'create-batch': {
         const { email, password, nome, telefone, role, mustChangePassword, programas, entidadeIds } = params;
 
-        if (!email || !password || !nome) {
-          return new Response(JSON.stringify({ error: 'Email, password and name are required' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        // Validate email
+        if (!email || !isValidEmail(email)) {
+          return jsonResponse({ error: 'E-mail inválido' }, 400, corsHeaders);
         }
 
-        if (password.length < 8) {
-          return new Response(JSON.stringify({ error: 'A senha deve ter pelo menos 8 caracteres' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        // Validate password
+        const pwCheck = isValidPassword(password);
+        if (!pwCheck.valid) {
+          return jsonResponse({ error: pwCheck.error }, 400, corsHeaders);
         }
 
+        // Validate nome
+        if (!nome || typeof nome !== 'string' || nome.trim().length === 0) {
+          return jsonResponse({ error: 'Nome é obrigatório' }, 400, corsHeaders);
+        }
+        const sanitizedNome = sanitizeString(nome, 255);
+
+        // Validate telefone
+        if (telefone && !isValidPhone(telefone)) {
+          return jsonResponse({ error: 'Telefone inválido' }, 400, corsHeaders);
+        }
+
+        // Validate role
         if (role && !ALL_ROLES.includes(role)) {
-          return new Response(JSON.stringify({ error: `Role inválido: ${role}` }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: 'Role inválido' }, 400, corsHeaders);
+        }
+
+        // Validate programas
+        if (programas !== undefined) {
+          const validProgramas = validateProgramas(programas);
+          if (validProgramas === null) {
+            return jsonResponse({ error: 'Programas inválidos' }, 400, corsHeaders);
+          }
+        }
+
+        // Validate entidadeIds
+        if (entidadeIds !== undefined) {
+          const validIds = validateUUIDArray(entidadeIds);
+          if (validIds === null) {
+            return jsonResponse({ error: 'IDs de entidade inválidos' }, 400, corsHeaders);
+          }
         }
 
         // Create user
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email, password, email_confirm: true, user_metadata: { nome },
+          email, password, email_confirm: true, user_metadata: { nome: sanitizedNome },
         });
 
         if (createError) {
-          return new Response(JSON.stringify({ error: createError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: createError.message }, 400, corsHeaders);
         }
 
         if (newUser.user) {
           // Update profile
           const updateData: Record<string, unknown> = {};
-          if (telefone) updateData.telefone = telefone;
+          if (telefone) updateData.telefone = sanitizeString(telefone, 20);
           if (mustChangePassword === true) updateData.must_change_password = true;
           if (Object.keys(updateData).length > 0) {
             await supabaseAdmin.from('profiles').update(updateData).eq('id', newUser.user.id);
@@ -161,46 +191,42 @@ Deno.serve(async (req) => {
           }
         }
 
-        return new Response(JSON.stringify({ success: true, user: newUser.user }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true, user: newUser.user }, 200, corsHeaders);
       }
 
       case 'delete': {
         const { userId } = params;
 
-        if (!userId) {
-          return new Response(JSON.stringify({ error: 'User ID is required' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        if (!userId || !isValidUUID(userId)) {
+          return jsonResponse({ error: 'User ID inválido' }, 400, corsHeaders);
         }
 
         if (userId === requestingUser.id) {
-          return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: 'Cannot delete your own account' }, 400, corsHeaders);
         }
 
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
         if (deleteError) {
-          return new Response(JSON.stringify({ error: deleteError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: deleteError.message }, 400, corsHeaders);
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
       case 'update': {
         const { userId, email, nome, telefone } = params;
 
-        if (!userId) {
-          return new Response(JSON.stringify({ error: 'User ID is required' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        if (!userId || !isValidUUID(userId)) {
+          return jsonResponse({ error: 'User ID inválido' }, 400, corsHeaders);
+        }
+
+        if (email && !isValidEmail(email)) {
+          return jsonResponse({ error: 'E-mail inválido' }, 400, corsHeaders);
+        }
+
+        if (telefone !== undefined && telefone !== null && telefone !== '' && !isValidPhone(telefone)) {
+          return jsonResponse({ error: 'Telefone inválido' }, 400, corsHeaders);
         }
 
         // Check duplicate email
@@ -209,28 +235,22 @@ Deno.serve(async (req) => {
             .from('profiles').select('id').eq('email', email).neq('id', userId).maybeSingle();
           
           if (existingProfile) {
-            return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }, 200, corsHeaders);
           }
 
           const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email });
           if (updateAuthError) {
             const errorMessage = updateAuthError.message.toLowerCase();
             if (errorMessage.includes('already') || errorMessage.includes('duplicate') || errorMessage.includes('exists') || errorMessage.includes('unique')) {
-              return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
+              return jsonResponse({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }, 200, corsHeaders);
             }
-            return new Response(JSON.stringify({ error: 'Erro ao atualizar e-mail: ' + updateAuthError.message }), {
-              status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: 'Erro ao atualizar e-mail' }, 400, corsHeaders);
           }
         }
 
         const updateData: Record<string, string> = {};
-        if (nome) updateData.nome = nome;
-        if (telefone !== undefined) updateData.telefone = telefone;
+        if (nome) updateData.nome = sanitizeString(nome, 255);
+        if (telefone !== undefined) updateData.telefone = telefone ? sanitizeString(telefone, 20) : telefone;
         if (email) updateData.email = email;
 
         if (Object.keys(updateData).length > 0) {
@@ -238,28 +258,25 @@ Deno.serve(async (req) => {
           if (profileError) {
             const errorMessage = profileError.message?.toLowerCase() || '';
             if (errorMessage.includes('duplicate') || errorMessage.includes('unique') || errorMessage.includes('already')) {
-              return new Response(JSON.stringify({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }), {
-                status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
+              return jsonResponse({ success: false, error: 'Este e-mail já está em uso por outro usuário', code: 'email_exists' }, 200, corsHeaders);
             }
-            return new Response(JSON.stringify({ error: 'Erro ao atualizar perfil: ' + profileError.message }), {
-              status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+            return jsonResponse({ error: 'Erro ao atualizar perfil' }, 400, corsHeaders);
           }
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
       case 'reset-password': {
         const { userId, newPassword } = params;
 
-        if (!userId || !newPassword) {
-          return new Response(JSON.stringify({ error: 'User ID and new password are required' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        if (!userId || !isValidUUID(userId)) {
+          return jsonResponse({ error: 'User ID inválido' }, 400, corsHeaders);
+        }
+
+        const pwCheck = isValidPassword(newPassword);
+        if (!pwCheck.valid) {
+          return jsonResponse({ error: pwCheck.error }, 400, corsHeaders);
         }
 
         const { error: resetError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -267,26 +284,18 @@ Deno.serve(async (req) => {
         });
 
         if (resetError) {
-          return new Response(JSON.stringify({ error: resetError.message }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse({ error: resetError.message }, 400, corsHeaders);
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
       default:
-        return new Response(JSON.stringify({ error: 'Invalid action' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return jsonResponse({ error: 'Invalid action' }, 400, corsHeaders);
     }
   } catch (error) {
     console.error('Error:', error);
     const corsHeaders = getCorsHeaders(req);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Internal server error' }, 500, corsHeaders);
   }
 });
