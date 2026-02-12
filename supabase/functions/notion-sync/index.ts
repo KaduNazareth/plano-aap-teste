@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -207,6 +208,13 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync') {
+      // Rate limit: 1 sync per minute
+      if (!checkRateLimit('notion-sync:global', 1, 60_000)) {
+        return new Response(JSON.stringify({ error: 'Sincronização já em andamento. Aguarde um momento.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Polling: buscar tarefas do Notion e sincronizar
       console.log('Starting Notion sync...');
       

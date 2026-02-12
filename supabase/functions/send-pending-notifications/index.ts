@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const NOTIFICATION_SECRET_KEY = Deno.env.get("NOTIFICATION_SECRET_KEY");
@@ -91,6 +92,15 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ success: false, error: 'Unauthorized', code: 'unauthorized' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Rate limit: 3 calls per minute (covers both cron and manual triggers)
+  const rateLimitKey = providedKey ? 'notifications:cron' : `notifications:${authHeader?.slice(0, 20)}`;
+  if (!checkRateLimit(rateLimitKey, 3, 60_000)) {
+    return new Response(
+      JSON.stringify({ error: 'Limite de requisições excedido. Aguarde um momento.' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
