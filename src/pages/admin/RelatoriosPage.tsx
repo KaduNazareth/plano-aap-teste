@@ -1172,99 +1172,39 @@ export default function RelatoriosPage() {
               </div>
             </div>
 
-            {/* Charts Row 2 - Escola List (2 modules) + Acompanhamento de Aula */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-              {/* Presence by School - Extended Table (2 modules height) */}
-              <div className="bg-card rounded-xl border border-border p-6 lg:row-span-2">
-                <h3 className="card-title mb-2">{presencaTitulo}</h3>
-                <div>
-                  <table className="w-full text-[11px]">
-                    <thead className="bg-muted sticky top-0">
-                      <tr>
-                        <th className="text-left py-1.5 px-2 font-medium text-muted-foreground border-b border-border">Escola</th>
-                        <th className="text-right py-1.5 px-2 font-medium text-muted-foreground border-b border-border">%</th>
+            {/* Presence by School */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="card-title mb-2">{presencaTitulo}</h3>
+              <div>
+                <table className="w-full text-[11px]">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left py-1.5 px-2 font-medium text-muted-foreground border-b border-border">Escola</th>
+                      <th className="text-right py-1.5 px-2 font-medium text-muted-foreground border-b border-border">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {presencaPorEscola.map((escola, index) => (
+                      <tr 
+                        key={escola.id} 
+                        className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
+                      >
+                        <td className="py-1 px-2 text-foreground leading-normal">{escola.name}</td>
+                        <td className="py-1 px-2 text-right">
+                          <span className={`font-medium ${
+                            escola.presenca >= 80 ? 'text-success' : 
+                            escola.presenca >= 50 ? 'text-warning' : 
+                            escola.presenca > 0 ? 'text-destructive' : 'text-muted-foreground'
+                          }`}>
+                            {escola.totalPresencas > 0 ? `${escola.presenca}%` : '-'}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {presencaPorEscola.map((escola, index) => (
-                        <tr 
-                          key={escola.id} 
-                          className={index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
-                        >
-                          <td className="py-1 px-2 text-foreground leading-normal">{escola.name}</td>
-                          <td className="py-1 px-2 text-right">
-                            <span className={`font-medium ${
-                              escola.presenca >= 80 ? 'text-success' : 
-                              escola.presenca >= 50 ? 'text-warning' : 
-                              escola.presenca > 0 ? 'text-destructive' : 'text-muted-foreground'
-                            }`}>
-                              {escola.totalPresencas > 0 ? `${escola.presenca}%` : '-'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {presencaPorEscola.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">Nenhuma escola encontrada</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Acompanhamento de Aula Column */}
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="card-title mb-4 flex items-center gap-2">
-                  <Eye size={20} className="text-warning" />
-                  Acompanhamento de Aula ({totalAvaliacoes} avaliações)
-                </h3>
-                
-                {totalAvaliacoes > 0 ? (
-                  <div className="space-y-6">
-                    {/* Radar Chart */}
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3">Médias por Dimensão</h4>
-                      <ResponsiveContainer width="100%" height={250}>
-                        <RadarChart data={radarData}>
-                          <PolarGrid stroke="hsl(var(--border))" />
-                          <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                          <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                          <Radar name="Média" dataKey="value" stroke="hsl(var(--warning))" fill="hsl(var(--warning))" fillOpacity={0.5} />
-                          <Tooltip 
-                            contentStyle={{ 
-                              background: 'hsl(var(--card))', 
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px'
-                            }}
-                            formatter={(value: number) => [value.toFixed(2), 'Média']}
-                          />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* Progress Rings - Média por Critério */}
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-3">Média por Critério (1-5)</h4>
-                      <div className="grid grid-cols-1 gap-3">
-                        {satisfacaoData.map(item => (
-                          <div key={item.name} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                            <ProgressRing 
-                              value={item.media} 
-                              maxValue={5}
-                              displayAsNumber
-                              size={40} 
-                              strokeWidth={4}
-                            />
-                            <div className="flex-1 flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground">{item.name}</p>
-                              <p className="font-semibold">{item.media.toFixed(1)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">Nenhuma avaliação registrada</p>
+                    ))}
+                  </tbody>
+                </table>
+                {presencaPorEscola.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">Nenhuma escola encontrada</p>
                 )}
               </div>
             </div>
