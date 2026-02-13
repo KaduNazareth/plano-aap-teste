@@ -1,64 +1,57 @@
 
+# Configurar Programas por Acao/Formulario
 
-# Vincular Atores Educacionais a Usuarios do Sistema
-
-## Contexto
-
-Atualmente a tabela `professores` (Atores Educacionais) e a tabela `profiles` (Atores dos Programas) sao completamente independentes. Nao ha nenhum vinculo entre elas. Isso impede, por exemplo, que um professor tenha acesso ao sistema ou que se possa redefinir sua senha a partir da pagina de Atores Educacionais.
-
-A ideia e criar uma associacao similar ao que a integracao do Notion faz com `notion_sync_config` (que mapeia `notion_user_email` para `system_user_id`).
+## Objetivo
+Permitir que o Administrador defina para quais Programas (Escolas, Regionais, Redes Municipais) cada instrumento/formulario esta disponivel na pagina de Configuracao de Formularios.
 
 ## Solucao
 
-Adicionar uma coluna `user_id` (uuid, nullable) na tabela `professores` que referencia `profiles.id`. Isso permite vincular opcionalmente cada professor a um usuario do sistema.
+### 1. Migracao de banco de dados
 
-### O que muda na pratica
+Adicionar uma coluna `programas` (array de `programa_type`) na tabela `form_config_settings` para armazenar quais programas estao habilitados para cada formulario:
 
-- Na pagina de Atores Educacionais, ao criar/editar um professor, aparecera um campo opcional "Usuario do Sistema" com um seletor dos usuarios cadastrados
-- Quando vinculado, sera possivel ver o papel (N6, N7 etc.) do usuario e acessar acoes como "Redefinir Senha" diretamente da pagina de professores
-- Professores sem vinculo continuam funcionando normalmente (o campo e opcional)
+```sql
+ALTER TABLE public.form_config_settings
+  ADD COLUMN programas programa_type[] NOT NULL DEFAULT ARRAY['escolas','regionais','redes_municipais']::programa_type[];
+```
+
+O valor padrao inclui todos os programas, mantendo compatibilidade com dados existentes.
+
+### 2. Interface (FormFieldConfigPage.tsx)
+
+Adicionar um bloco de checkboxes logo abaixo do seletor de instrumento, dentro do mesmo card ou em um card proprio:
+
+```text
+Programas habilitados:
+[x] Escolas   [x] Regionais   [x] Redes Municipais
+```
+
+- Cada checkbox alterna a presenca do programa no array `programas`
+- As alteracoes sao salvas junto com o botao "Salvar Alteracoes" existente
+- O estado local acompanha o campo `programas` do `settingsData`
+
+### 3. Hook (useFormFieldConfig.ts)
+
+Atualizar o `useFormFieldConfig` (hook de leitura) para tambem retornar o campo `programas` do `form_config_settings`, permitindo que as paginas de registro filtrem instrumentos indisponiveis para o programa selecionado.
+
+### 4. Logica de salvamento
+
+No `saveSettingsMutation` existente, incluir o campo `programas` no upsert junto com `min_optional_questions`.
 
 ## Detalhes Tecnicos
 
-### 1. Migracao de banco de dados
+### Arquivo: Migracao SQL
+- `ALTER TABLE form_config_settings ADD COLUMN programas programa_type[]`
 
-```sql
-ALTER TABLE public.professores
-  ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
-```
+### Arquivo: `src/pages/admin/FormFieldConfigPage.tsx`
+- Adicionar estado `programas` (array de strings) sincronizado com `settingsData`
+- Renderizar 3 checkboxes (Escolas, Regionais, Redes Municipais) no card de configuracoes
+- Incluir `programas` na mutacao de save
 
-### 2. Arquivo: `src/pages/admin/ProfessoresPage.tsx`
+### Arquivo: `src/hooks/useFormFieldConfig.ts`
+- Incluir `programas` no select do `useFormFieldConfig`
+- Retornar `programas` para uso nas paginas de registro
 
-**Interface Professor** (linhas 42-60): Adicionar campo `user_id: string | null`.
-
-**Formulario de criacao/edicao**: Adicionar um campo `<select>` opcional rotulado "Usuario do Sistema" que lista os perfis disponiveis (busca na tabela `profiles`). O seletor filtrara por perfis que ainda nao estao vinculados a outro professor.
-
-**Tabela de listagem**: Adicionar uma coluna "Usuario" que mostra o nome do perfil vinculado (se houver) com um badge indicando o papel. Quando vinculado, exibir icone de chave para redefinir senha.
-
-**Logica de redefinicao de senha**: Reutilizar a mesma logica ja implementada em `AtoresProgramaPage.tsx`, chamando a edge function `manage-users` com a acao de reset.
-
-### 3. Arquivo: `src/types/index.ts`
-
-Atualizar o tipo `Professor` (se existir) para incluir `user_id`.
-
-### Fluxo
-
-```text
-Pagina Atores Educacionais
-  |
-  |-- Criar/Editar Professor
-  |     |-- Campo "Usuario do Sistema" (opcional)
-  |     |-- Seleciona um perfil existente de profiles
-  |     |-- Salva user_id na tabela professores
-  |
-  |-- Listagem
-        |-- Coluna "Usuario" mostra vinculo
-        |-- Se vinculado: botao de redefinir senha
-```
-
-### Consideracoes
-
-- A coluna `user_id` e nullable: professores sem usuario do sistema continuam funcionando
-- A busca de perfis para o seletor respeitara as politicas RLS existentes
-- Nao sera necessario alterar as RLS da tabela `professores` pois a coluna e apenas informativa
-- O vinculo e 1:1 (um professor para no maximo um usuario)
+### Validacao
+- Pelo menos 1 programa deve estar selecionado (desabilitar o ultimo checkbox restante)
+- Formularios sem registro em `form_config_settings` assumem todos os programas habilitados (default)
