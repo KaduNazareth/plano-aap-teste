@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Settings2, Save, Eye, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppRole } from '@/contexts/AuthContext';
@@ -32,6 +34,7 @@ export default function FormFieldConfigPage() {
   const [pendingChanges, setPendingChanges] = useState<Record<string, { enabled: boolean; required: boolean }>>({});
   const [previewRole, setPreviewRole] = useState<string>('');
   const [minOptional, setMinOptional] = useState<number>(3);
+  const [programas, setProgramas] = useState<string[]>(['escolas', 'regionais', 'redes_municipais']);
 
   // Reset pending changes when form type changes
   useEffect(() => {
@@ -61,26 +64,29 @@ export default function FormFieldConfigPage() {
         .eq('form_key', selectedFormType)
         .single();
       if (error) return null;
-      return data as { form_key: string; min_optional_questions: number } | null;
+      return data as { form_key: string; min_optional_questions: number; programas: string[] } | null;
     },
   });
 
   useEffect(() => {
     if (settingsData) {
       setMinOptional(settingsData.min_optional_questions);
+      setProgramas(settingsData.programas ?? ['escolas', 'regionais', 'redes_municipais']);
     } else {
       setMinOptional(3);
+      setProgramas(['escolas', 'regionais', 'redes_municipais']);
     }
   }, [settingsData]);
 
   const saveSettingsMutation = useMutation({
-    mutationFn: async (minOpt: number) => {
+    mutationFn: async ({ minOpt, progs }: { minOpt: number; progs: string[] }) => {
       const { data: userData } = await supabase.auth.getUser();
       const { error } = await (supabase as any)
         .from('form_config_settings')
         .upsert({
           form_key: selectedFormType,
           min_optional_questions: minOpt,
+          programas: progs,
           updated_at: new Date().toISOString(),
           updated_by: userData.user?.id,
         });
@@ -121,8 +127,9 @@ export default function FormFieldConfigPage() {
     
     const hasFieldChanges = updates.length > 0;
     const hasSettingsChange = settingsData?.min_optional_questions !== minOptional;
+    const hasProgramasChange = JSON.stringify(settingsData?.programas ?? ['escolas', 'regionais', 'redes_municipais']) !== JSON.stringify(programas);
     
-    if (!hasFieldChanges && !hasSettingsChange) {
+    if (!hasFieldChanges && !hasSettingsChange && !hasProgramasChange) {
       toast.info('Nenhuma alteração para salvar');
       return;
     }
@@ -131,8 +138,8 @@ export default function FormFieldConfigPage() {
         await updateConfig(updates);
         setPendingChanges({});
       }
-      if (hasSettingsChange) {
-        await saveSettingsMutation.mutateAsync(minOptional);
+      if (hasSettingsChange || hasProgramasChange) {
+        await saveSettingsMutation.mutateAsync({ minOpt: minOptional, progs: programas });
       }
       toast.success('Configurações salvas com sucesso');
     } catch (e) {
@@ -140,7 +147,18 @@ export default function FormFieldConfigPage() {
     }
   };
 
-  const hasPending = Object.keys(pendingChanges).length > 0 || settingsData?.min_optional_questions !== minOptional;
+  const hasProgramasChange = JSON.stringify(settingsData?.programas ?? ['escolas', 'regionais', 'redes_municipais']) !== JSON.stringify(programas);
+  const hasPending = Object.keys(pendingChanges).length > 0 || settingsData?.min_optional_questions !== minOptional || hasProgramasChange;
+
+  const togglePrograma = (prog: string) => {
+    setProgramas(prev => {
+      if (prev.includes(prog)) {
+        if (prev.length <= 1) return prev; // at least 1
+        return prev.filter(p => p !== prog);
+      }
+      return [...prev, prog];
+    });
+  };
 
   const previewFields = previewRole
     ? fieldList.filter(f => getFieldState(f.key, previewRole).enabled)
@@ -218,7 +236,30 @@ export default function FormFieldConfigPage() {
         </div>
       </div>
 
-      {/* Min Optional Questions Config (only for observacao_aula) */}
+      {/* Programas habilitados */}
+      <div className="card p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Label className="text-sm font-medium whitespace-nowrap">Programas habilitados:</Label>
+          <div className="flex items-center gap-6">
+            {[
+              { value: 'escolas', label: 'Escolas' },
+              { value: 'regionais', label: 'Regionais' },
+              { value: 'redes_municipais', label: 'Redes Municipais' },
+            ].map(p => (
+              <div key={p.value} className="flex items-center gap-2">
+                <Checkbox
+                  id={`prog-${p.value}`}
+                  checked={programas.includes(p.value)}
+                  disabled={programas.includes(p.value) && programas.length <= 1}
+                  onCheckedChange={() => togglePrograma(p.value)}
+                />
+                <Label htmlFor={`prog-${p.value}`} className="text-sm cursor-pointer">{p.label}</Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {showMinOptional && (
         <div className="card p-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
