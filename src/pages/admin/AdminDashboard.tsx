@@ -92,7 +92,7 @@ interface Profile {
 }
 
 export default function AdminDashboard() {
-  const { profile, isAdmin, isGestor, isAAP } = useAuth();
+  const { profile, isAdmin, isGestor, isAAP, isManager } = useAuth();
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const { chartData: instrumentChartData, isLoading: isInstrumentChartsLoading } = useInstrumentChartData({
     escolaFilter: 'todos',
@@ -126,13 +126,22 @@ export default function AdminDashboard() {
       let userSchoolIds: string[] = [];
       
       if (profile?.id) {
-        if (isGestor) {
-          // Fetch gestor's programs
-          const { data: gestorProgramas } = await supabase
-            .from('gestor_programas')
+        if (isManager && !isAdmin) {
+          // Fetch N2/N3 programs from user_programas
+          const { data: managerProgramas } = await supabase
+            .from('user_programas')
             .select('programa')
-            .eq('gestor_user_id', profile.id);
-          userPrograms = (gestorProgramas || []).map(p => p.programa as ProgramaType);
+            .eq('user_id', profile.id);
+          userPrograms = (managerProgramas || []).map(p => p.programa as ProgramaType);
+          
+          // Fallback: also check gestor_programas for legacy N2
+          if (userPrograms.length === 0 && isGestor) {
+            const { data: gestorProgramas } = await supabase
+              .from('gestor_programas')
+              .select('programa')
+              .eq('gestor_user_id', profile.id);
+            userPrograms = (gestorProgramas || []).map(p => p.programa as ProgramaType);
+          }
         } else if (isAAP) {
           // Fetch AAP's schools
           const { data: aapEscolas } = await supabase
@@ -214,7 +223,7 @@ export default function AdminDashboard() {
       let filteredPendentesData = pendentesComAtraso;
       let filteredAapsData = aapsWithProgramas;
       
-      if (isGestor && userPrograms.length > 0) {
+      if ((isManager && !isAdmin) && userPrograms.length > 0) {
         // Filter by gestor's programs
         filteredEscolasData = filteredEscolasData.filter(e => 
           e.programa?.some((p: string) => userPrograms.includes(p as ProgramaType))
@@ -267,7 +276,14 @@ export default function AdminDashboard() {
     };
 
     fetchData();
-  }, [profile?.id, isAdmin, isGestor, isAAP]);
+  }, [profile?.id, isAdmin, isGestor, isAAP, isManager]);
+
+  // Auto-select program when user has only one
+  useEffect(() => {
+    if (!isAdmin && userProgramas.length === 1) {
+      setProgramaFilter(userProgramas[0]);
+    }
+  }, [userProgramas, isAdmin]);
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -476,10 +492,23 @@ export default function AdminDashboard() {
                 <SelectValue placeholder="Programa" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Programa</SelectItem>
-                <SelectItem value="escolas">Programa de Escolas</SelectItem>
-                <SelectItem value="regionais">Programa de Regionais de Ensino</SelectItem>
-                <SelectItem value="redes_municipais">Programa de Redes Municipais</SelectItem>
+                {(isAdmin || userProgramas.length === 0) ? (
+                  <>
+                    <SelectItem value="todos">Programa</SelectItem>
+                    <SelectItem value="escolas">Programa de Escolas</SelectItem>
+                    <SelectItem value="regionais">Programa de Regionais de Ensino</SelectItem>
+                    <SelectItem value="redes_municipais">Programa de Redes Municipais</SelectItem>
+                  </>
+                ) : userProgramas.length === 1 ? (
+                  <SelectItem value={userProgramas[0]}>{programaLabels[userProgramas[0]]}</SelectItem>
+                ) : (
+                  <>
+                    <SelectItem value="todos">Todos os Programas</SelectItem>
+                    {userProgramas.map(prog => (
+                      <SelectItem key={prog} value={prog}>{programaLabels[prog]}</SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
             <Select value={escolaFilter} onValueChange={setEscolaFilter}>
