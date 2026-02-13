@@ -44,11 +44,11 @@ export function useFormFieldConfig(formKey: string) {
     queryFn: async () => {
       const { data, error } = await (supabase as unknown as { from: (table: string) => any })
         .from('form_config_settings')
-        .select('min_optional_questions')
+        .select('min_optional_questions, programas')
         .eq('form_key', formKey)
         .single();
       if (error) return null;
-      return data as { min_optional_questions: number } | null;
+      return data as { min_optional_questions: number; programas: string[] } | null;
     },
   });
 
@@ -63,6 +63,7 @@ export function useFormFieldConfig(formKey: string) {
   }, [data]);
 
   const minOptionalQuestions: number = (settingsData as unknown as { min_optional_questions: number } | null)?.min_optional_questions ?? 3;
+  const programas: string[] = (settingsData as unknown as { programas: string[] } | null)?.programas ?? ['escolas', 'regionais', 'redes_municipais'];
 
   return {
     configMap,
@@ -70,6 +71,7 @@ export function useFormFieldConfig(formKey: string) {
     isFieldRequired: (key: string) => configMap[key]?.required ?? false,
     isLoading,
     minOptionalQuestions,
+    programas,
   };
 }
 

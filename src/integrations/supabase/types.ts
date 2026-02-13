@@ -185,18 +185,21 @@ export type Database = {
         Row: {
           form_key: string
           min_optional_questions: number
+          programas: Database["public"]["Enums"]["programa_type"][]
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           form_key: string
           min_optional_questions?: number
+          programas?: Database["public"]["Enums"]["programa_type"][]
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           form_key?: string
           min_optional_questions?: number
+          programas?: Database["public"]["Enums"]["programa_type"][]
           updated_at?: string
           updated_by?: string | null
         }
