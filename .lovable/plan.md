@@ -1,90 +1,75 @@
 
-# Correção: Lista de Presença não exibe participantes
+# Correção: "Gerenciar Presenças" na RegistrosPage não exibe atores administrativos
 
-## Diagnóstico completo
+## Diagnóstico
 
-Há **dois problemas combinados** em `src/pages/admin/ListaPresencaPage.tsx`:
+O modal "Gerenciar Presenças" é aberto via `handleOpenManage` que chama `getAvailableProfessors` (linhas 428–453 de `RegistrosPage.tsx`).
 
-### Problema 1 — A página não usa `tipo_ator_presenca`
+O problema está na função `getAvailableProfessors`, bloco de formação (linhas 431–443):
 
-A `ListaPresencaPage` é uma página **completamente separada** da `RegistrosPage`. Ela tem sua própria lógica de busca de participantes (linhas 136–187) que nunca foi atualizada para usar o campo `tipo_ator_presenca`. A query de formações também não inclui esse campo no SELECT.
+```typescript
+return professores.filter(p => {
+  if (p.escola_id !== registro.escola_id) return false;
+  if (p.componente !== registro.componente) return false;  // ← PROBLEMA AQUI
+  if (registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
+  if (registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
+  // filtro por cargo já existe (correto)
+  const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
+  const tipoAtor = programacao?.tipo_ator_presenca;
+  if (tipoAtor && tipoAtor !== 'todos') {
+    if (p.cargo !== tipoAtor) return false;
+  }
+  return true;
+});
+```
 
-### Problema 2 — Filtro de componente exclui coordenadores/diretores
+A linha `if (p.componente !== registro.componente) return false` **sempre filtra por componente**, antes mesmo de verificar o `tipo_ator_presenca`. Coordenadores e diretores têm `componente = 'nao_se_aplica'`, então são eliminados imediatamente — o filtro por cargo nunca chega a ser avaliado para eles.
 
-Verificando o banco de dados:
-
-- A formação tem `componente: lingua_portuguesa`
-- Os coordenadores/diretores têm `componente: nao_se_aplica`
-
-O filtro atual `.eq('componente', 'lingua_portuguesa')` elimina todos os coordenadores, diretores e vice-diretores antes mesmo de considerar o cargo.
-
-**Regra correta**: quando `tipo_ator_presenca` for um cargo não-professor (`coordenador`, `diretor`, `vice_diretor`), o filtro por `componente` e `segmento` **não deve ser aplicado**, pois esses profissionais são cadastrados com `nao_se_aplica`.
+A mesma lógica condicional aplicada em `ListaPresencaPage.tsx` precisa ser aplicada aqui.
 
 ## Solução
 
-Três alterações cirúrgicas em `src/pages/admin/ListaPresencaPage.tsx`:
+Alterar **apenas** a função `getAvailableProfessors` em `src/pages/admin/RegistrosPage.tsx` (linhas 428–453):
 
-### 1. Adicionar `tipo_ator_presenca` à interface `Formacao`
+### Antes
 
 ```typescript
-interface Formacao {
-  ...
-  tipo_ator_presenca: string | null;  // ← adicionar
+if (registro.tipo === 'formacao') {
+  return professores.filter(p => {
+    if (p.escola_id !== registro.escola_id) return false;
+    if (p.componente !== registro.componente) return false;   // ← sem condição
+    if (registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
+    if (registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
+    const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
+    const tipoAtor = programacao?.tipo_ator_presenca;
+    if (tipoAtor && tipoAtor !== 'todos') {
+      if (p.cargo !== tipoAtor) return false;
+    }
+    return true;
+  });
 }
 ```
 
-### 2. Incluir `tipo_ator_presenca` na query de formações
+### Depois
 
 ```typescript
-.select(`
-  id,
-  titulo,
-  data,
-  horario_inicio,
-  horario_fim,
-  segmento,
-  componente,
-  ano_serie,
-  programa,
-  tipo_ator_presenca,   // ← adicionar
-  escola_id,
-  escolas!inner(nome),
-  profiles!programacoes_aap_id_fkey(nome)
-`)
-```
+if (registro.tipo === 'formacao') {
+  const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
+  const tipoAtor = programacao?.tipo_ator_presenca;
+  const isCargoAdministrativo = tipoAtor && tipoAtor !== 'todos' && tipoAtor !== 'professor';
 
-E no mapeamento:
-```typescript
-tipo_ator_presenca: f.tipo_ator_presenca || 'todos',
-```
-
-### 3. Atualizar a lógica de busca de participantes
-
-Cargos não-professor (`coordenador`, `diretor`, `vice_diretor`) têm `componente: nao_se_aplica` e `segmento: nao_se_aplica`. O filtro precisa ser condicional:
-
-```typescript
-const cargosFiltrados = ['coordenador', 'diretor', 'vice_diretor', 'equipe_tecnica_sme'];
-const tipoAtor = selectedFormacao.tipo_ator_presenca;
-const isCargoAdministrativo = tipoAtor && tipoAtor !== 'todos' && tipoAtor !== 'professor';
-
-// Filtro por componente: apenas se o alvo for professor
-if (!isCargoAdministrativo && selectedFormacao.componente && selectedFormacao.componente !== 'todos') {
-  query = query.eq('componente', selectedFormacao.componente);
-}
-
-// Filtro por segmento: apenas se o alvo for professor
-if (!isCargoAdministrativo && selectedFormacao.segmento && selectedFormacao.segmento !== 'todos') {
-  query = query.eq('segmento', selectedFormacao.segmento);
-}
-
-// Filtro por ano_serie: apenas se o alvo for professor
-if (!isCargoAdministrativo && selectedFormacao.ano_serie && selectedFormacao.ano_serie !== 'todos') {
-  query = query.eq('ano_serie', selectedFormacao.ano_serie);
-}
-
-// Filtro por cargo: quando tipo_ator_presenca for específico
-if (tipoAtor && tipoAtor !== 'todos') {
-  query = query.eq('cargo', tipoAtor);
+  return professores.filter(p => {
+    if (p.escola_id !== registro.escola_id) return false;
+    // Filtro por componente: apenas se o alvo for professor (admins têm 'nao_se_aplica')
+    if (!isCargoAdministrativo && p.componente !== registro.componente) return false;
+    // Filtro por segmento: apenas se o alvo for professor
+    if (!isCargoAdministrativo && registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
+    // Filtro por ano_serie: apenas se o alvo for professor
+    if (!isCargoAdministrativo && registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
+    // Filtro por cargo
+    if (tipoAtor && tipoAtor !== 'todos' && p.cargo !== tipoAtor) return false;
+    return true;
+  });
 }
 ```
 
@@ -92,8 +77,8 @@ if (tipoAtor && tipoAtor !== 'todos') {
 
 | Item | Detalhe |
 |---|---|
-| Causa raiz #1 | `ListaPresencaPage` não lê `tipo_ator_presenca` — campo nunca foi adicionado aqui |
-| Causa raiz #2 | Filtro de `componente` exclui coordenadores/diretores (que têm `nao_se_aplica`) |
-| Solução | Adicionar campo à interface + query; tornar filtros de componente/segmento condicionais ao tipo de ator |
-| Arquivo alterado | `src/pages/admin/ListaPresencaPage.tsx` somente |
+| Causa raiz | Filtro por `componente` aplicado incondicionalmente, eliminando atores administrativos (coordenador, diretor, vice-diretor) antes de verificar o cargo |
+| Solução | Tornar os filtros de `componente`, `segmento` e `ano_serie` condicionais ao tipo de ator — igual ao que foi feito em `ListaPresencaPage.tsx` |
+| Arquivo alterado | `src/pages/admin/RegistrosPage.tsx` somente |
+| Linhas afetadas | 428–453 (função `getAvailableProfessors`) |
 | Migração de banco | Não necessária |
