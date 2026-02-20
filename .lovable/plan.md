@@ -1,168 +1,60 @@
 
-# Adicionar Segmento e Componente opcionais para Atores de Programa
+# Correções no Dashboard: Atores Educacionais e Contagem de Consultores
 
-## Contexto
+## Problema 1 — Substituir "Professores" e "Coordenadores" por "Atores Educacionais"
 
-Os campos Segmento (Anos Iniciais, Anos Finais, Ensino Médio, Não se aplica) e Componente (Polivalente, Língua Portuguesa, Matemática, Não se aplica) já existem na tabela `professores` (atores educacionais locais). O pedido é torná-los disponíveis também para os usuários de programa — Consultores (N4), Gestores (N2/N3), Formadores (N5) etc.
+Atualmente o dashboard exibe dois cards separados:
+- **Professores** → conta `filteredProfessores.length` (todos os registros da tabela `professores`)
+- **Coordenadores** → conta `filteredProfessores.filter(p => p.cargo === 'coordenador').length`
 
-Esses campos não existem na tabela `profiles` nem em nenhuma tabela de vínculos de usuários de programa, então são necessárias:
-1. Uma migração para adicionar as colunas na tabela `profiles`
-2. Atualização dos dois formulários de gestão
+A tabela `professores` já armazena todos os atores educacionais locais (Professor, Coordenador, Vice-Diretor, Diretor, Equipe Técnica SME), portanto um único card "Atores Educacionais" com `totalProfessores` é a representação correta.
 
-## Decisões de design
+**Mudança na UI (linhas 563–589 aproximadamente):**
+- Remover os dois cards separados ("Professores" e "Coordenadores")
+- Adicionar um único card "Atores Educacionais" com `value={totalProfessores}` e link para `/professores`
+- Remover a variável `totalCoordenadores` que ficará sem uso
+- Ajustar o `grid-cols` da seção de stats (reduz de 6 para 5 colunas no máximo)
 
-- **Opcionais**: campos nullable, sem validação obrigatória
-- **Ambos os locais**: aparecem em `/usuarios` (Gestão de Usuários) e `/atores` (Atores dos Programas)
-- **Mesmos valores** já usados no sistema: `anos_iniciais`, `anos_finais`, `ensino_medio`, `nao_se_aplica` para Segmento; `polivalente`, `lingua_portuguesa`, `matematica`, `nao_se_aplica` para Componente
-- **Exibição na tabela**: colunas adicionais mostrando os valores ou "—" quando não preenchidos
+## Problema 2 — Contagem duplicada de "Consultores / Gestores / Formadores"
 
-## Migração SQL
-
-Adicionar duas colunas opcionais na tabela `profiles`:
-
-```sql
-ALTER TABLE public.profiles 
-  ADD COLUMN IF NOT EXISTS segmento text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS componente text DEFAULT NULL;
-
--- Constraint para valores válidos (com NULL permitido)
-ALTER TABLE public.profiles
-  ADD CONSTRAINT profiles_segmento_check 
-    CHECK (segmento IS NULL OR segmento = ANY (ARRAY[
-      'anos_iniciais', 'anos_finais', 'ensino_medio', 'nao_se_aplica'
-    ]));
-
-ALTER TABLE public.profiles
-  ADD CONSTRAINT profiles_componente_check 
-    CHECK (componente IS NULL OR componente = ANY (ARRAY[
-      'polivalente', 'lingua_portuguesa', 'matematica', 'nao_se_aplica'
-    ]));
-```
-
-## Alterações no frontend
-
-### 1. `src/contexts/AuthContext.tsx`
-
-Adicionar `segmento` e `componente` à interface `UserProfile`:
+**Causa raiz:** A query `rolesRes` retorna todas as linhas da tabela `user_roles` para os papéis listados. Como um usuário pode ter múltiplos papéis (ex: `n4_1_cped` e `n4_2_gpi`), o mesmo `user_id` aparece várias vezes. O array `aapsWithProgramas` é construído com `.map()` sobre essas linhas, criando um objeto por linha — não por usuário.
 
 ```typescript
-export interface UserProfile {
-  id: string;
-  nome: string;
-  email: string;
-  telefone?: string;
-  role: AppRole;
-  programas?: ProgramaType[];
-  entidadeIds?: string[];
-  mustChangePassword?: boolean;
-  segmento?: string | null;
-  componente?: string | null;
-}
+// PROBLEMA: rolesRes.data tem uma linha por papel, não por usuário
+const aapsWithProgramas: AAPWithPrograma[] = (rolesRes.data || []).map(role => {
+  // Se user_id aparece 3x (3 papéis), cria 3 entradas
+  ...
+});
 ```
 
-E no `fetchProfile` incluir os campos no select e no objeto retornado.
+**Solução:** Deduplificar por `user_id` antes de criar `aapsWithProgramas`:
 
-### 2. `src/pages/admin/UsuariosPage.tsx`
-
-**Interface `UserWithRole`** — adicionar:
 ```typescript
-segmento: string | null;
-componente: string | null;
+// Agrupar roles por user_id (deduplicar)
+const uniqueUserIds = [...new Set((rolesRes.data || []).map(r => r.user_id))];
+
+const aapsWithProgramas: AAPWithPrograma[] = uniqueUserIds.map(userId => {
+  const legacyProgramas = (aapProgramasRes.data || [])
+    .filter(p => p.aap_user_id === userId)
+    .map(p => p.programa as ProgramaType);
+  const newProgramas = (userProgramasRes.data || [])
+    .filter(p => p.user_id === userId)
+    .map(p => p.programa as ProgramaType);
+  const programas = [...new Set([...legacyProgramas, ...newProgramas])];
+  const profileItem = profilesData.find(p => p.id === userId);
+  return { user_id: userId, programas, nome: profileItem?.nome || 'Ator' };
+});
 ```
 
-**`formData`** — adicionar:
-```typescript
-segmento: '' as string,
-componente: '' as string,
-```
+Isso garante que cada usuário único seja contado apenas uma vez, independente de quantos papéis ele possua.
 
-**`fetchUsers`** — o select de `profiles` já usa `'*'`, então os novos campos são retornados automaticamente. Mapear para o objeto.
+## Resumo das alterações
 
-**`resetForm`** — incluir `segmento: '', componente: ''`.
-
-**`openDialog`** — popular os campos ao editar.
-
-**`handleCreateUser` / `handleUpdateUser`** — passar `segmento` e `componente` para a edge function `manage-users`. A edge function precisará ser atualizada para aceitar e salvar esses campos.
-
-**`renderSegmentoComponenteField()`** — novo bloco de UI para os dois selects:
-
-```tsx
-const renderSegmentoComponenteField = () => (
-  <div className="grid grid-cols-2 gap-3">
-    <div>
-      <Label>Segmento</Label>
-      <Select
-        value={formData.segmento || 'nao_informado'}
-        onValueChange={(v) => setFormData({ ...formData, segmento: v === 'nao_informado' ? '' : v })}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Selecione..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="nao_informado">Não informado</SelectItem>
-          <SelectItem value="anos_iniciais">Anos Iniciais</SelectItem>
-          <SelectItem value="anos_finais">Anos Finais</SelectItem>
-          <SelectItem value="ensino_medio">Ensino Médio</SelectItem>
-          <SelectItem value="nao_se_aplica">Não se aplica</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div>
-      <Label>Componente</Label>
-      <Select
-        value={formData.componente || 'nao_informado'}
-        onValueChange={(v) => setFormData({ ...formData, componente: v === 'nao_informado' ? '' : v })}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Selecione..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="nao_informado">Não informado</SelectItem>
-          <SelectItem value="polivalente">Polivalente</SelectItem>
-          <SelectItem value="lingua_portuguesa">Língua Portuguesa</SelectItem>
-          <SelectItem value="matematica">Matemática</SelectItem>
-          <SelectItem value="nao_se_aplica">Não se aplica</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-);
-```
-
-**Formulários de criação e edição** — adicionar `{renderSegmentoComponenteField()}` antes dos botões de ação.
-
-**Colunas da tabela** — adicionar coluna "Segmento / Componente" exibindo os valores ou `—`.
-
-### 3. `src/pages/admin/AtoresProgramaPage.tsx`
-
-**Interface `ActorUser`** — adicionar:
-```typescript
-segmento: string | null;
-componente: string | null;
-```
-
-**`formData`** — adicionar `segmento: '', componente: ''`.
-
-**`fetchData`** — adicionar `segmento, componente` ao select de `profiles`.
-
-**`openDialog`** — popular os campos ao editar.
-
-**`handleSaveRole`** — salvar `segmento` e `componente` diretamente na tabela `profiles` via `supabase.from('profiles').update(...)`.
-
-**UI do dialog "Alterar papel"** — adicionar `renderSegmentoComponenteField()` (componente compartilhado ou duplicado).
-
-**Colunas da tabela** — adicionar coluna "Segmento / Componente".
-
-### 4. `supabase/functions/manage-users/index.ts`
-
-Adicionar `segmento` e `componente` aos parâmetros aceitos nas ações `create` e `update`, salvando-os no `profiles` via `supabase.from('profiles').update(...)` após criar/atualizar o usuário.
-
-## Resumo dos arquivos alterados
-
-| Arquivo | Alteração |
+| Arquivo | Mudança |
 |---|---|
-| Nova migration SQL | Adicionar `segmento` e `componente` nullable em `profiles` |
-| `src/contexts/AuthContext.tsx` | Adicionar campos à interface `UserProfile` e ao fetch |
-| `src/pages/admin/UsuariosPage.tsx` | Interface, formData, form UI, colunas, handlers create/update |
-| `src/pages/admin/AtoresProgramaPage.tsx` | Interface, formData, form UI, colunas, handler save |
-| `supabase/functions/manage-users/index.ts` | Suporte a `segmento` e `componente` nas ações create/update |
+| `src/pages/admin/AdminDashboard.tsx` | 1. Substituir cards "Professores" + "Coordenadores" por card único "Atores Educacionais" |
+| `src/pages/admin/AdminDashboard.tsx` | 2. Deduplificar `aapsWithProgramas` por `user_id` para corrigir a contagem |
+| `src/pages/admin/AdminDashboard.tsx` | 3. Remover variável `totalCoordenadores` (sem uso) |
+| `src/pages/admin/AdminDashboard.tsx` | 4. Ajustar `grid-cols` do stats grid (de `lg:grid-cols-6` para `lg:grid-cols-5`) |
+
+Apenas **um arquivo** é alterado e **nenhuma migração** de banco de dados é necessária.
