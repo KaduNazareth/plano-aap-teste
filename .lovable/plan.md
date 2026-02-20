@@ -1,70 +1,72 @@
 
-# Atualizar dados do grafico "Acoes Previstas x Realizadas - Por Ator do Programa"
+# Atualizar Modelo de Importação em Lote de Atores Educacionais
 
 ## Problema
 
-O grafico atual busca apenas usuarios com roles legados (`aap_inicial`, `aap_portugues`, `aap_matematica`) da tabela `aap_programas`. Os novos perfis N2 a N5 nao aparecem no grafico, ja que seus programas estao na tabela `user_programas`.
+O modelo Excel atual (`modelo_professores.xlsx`) não documenta os valores aceitos para os campos **Segmento**, **Componente** e **Ano/Série**. Quem tenta importar não sabe quais valores digitar, causando erros de validação no upload.
 
-## Alteracoes no arquivo `src/pages/admin/AdminDashboard.tsx`
+Além disso, o dialog de importação não exibe uma lista dos valores válidos para orientar o usuário antes de montar o arquivo.
 
-### 1. Renomear titulo (linhas 661-663)
-- Comentario: `{/* By AAP */}` para `{/* By Ator do Programa */}`
-- Titulo: `Acoes Previstas x Realizadas por AAP` para `Acoes Previstas x Realizadas - Por Ator do Programa`
+## Alterações
 
-### 2. Expandir busca de atores (linhas 167-186)
+### Arquivo: `src/pages/admin/ProfessoresPage.tsx`
 
-Adicionar ao `Promise.all`:
-- Buscar roles N2-N5 alem dos legados: incluir `'gestor'`, `'n3_coordenador_programa'`, `'n4_1_cped'`, `'n4_2_gpi'`, `'n5_formador'` na query de `user_roles`
-- Buscar `user_programas` (programas dos novos perfis) alem de `aap_programas`
+#### 1. Enriquecer o modelo Excel com aba de referência (`handleExportTemplate`)
 
-```typescript
-// Antes (linha 179):
-supabase.from('user_roles').select('user_id').in('role', ['aap_inicial', 'aap_portugues', 'aap_matematica']),
+O arquivo baixado passará a ter **duas abas**:
 
-// Depois:
-supabase.from('user_roles').select('user_id, role').in('role', [
-  'gestor', 'n3_coordenador_programa', 'n4_1_cped', 'n4_2_gpi', 'n5_formador',
-  'aap_inicial', 'aap_portugues', 'aap_matematica'
-]),
+**Aba 1 — "Atores"** (dados a preencher): igual ao atual, com uma linha de exemplo.
+
+```
+Nome | Email | Telefone | Escola | Segmento | Componente | Ano/Série | Cargo | Programa
+Maria Silva | maria@escola.edu.br | (11) 99999-9999 | Nome da Escola | anos_iniciais | polivalente | 1º Ano | professor | escolas
 ```
 
-Adicionar fetch de `user_programas`:
-```typescript
-supabase.from('user_programas').select('user_id, programa'),
+**Aba 2 — "Valores Válidos"** (guia de referência): tabela com colunas explicando todos os valores aceitos por campo.
+
+| Campo | Valor | Descrição |
+|---|---|---|
+| Segmento | anos_iniciais | Anos Iniciais |
+| Segmento | anos_finais | Anos Finais |
+| Segmento | ensino_medio | Ensino Médio |
+| Componente | polivalente | Polivalente |
+| Componente | lingua_portuguesa | Língua Portuguesa |
+| Componente | matematica | Matemática |
+| Ano/Série | 1º Ano | Anos Iniciais |
+| Ano/Série | 2º Ano | Anos Iniciais |
+| ... | ... | ... |
+| Cargo | professor | Professor |
+| Cargo | coordenador | Coordenador |
+| Cargo | vice_diretor | Vice-Diretor |
+| Cargo | diretor | Diretor |
+| Cargo | equipe_tecnica_sme | Equipe Técnica (SME) |
+| Programa | escolas | Programa de Escolas |
+| Programa | regionais | Programa de Regionais de Ensino |
+| Programa | redes_municipais | Programa de Redes Municipais |
+
+#### 2. Atualizar instruções no dialog de importação
+
+Substituir o texto genérico `"Faça upload de um arquivo Excel (.xlsx) com os dados dos professores."` por uma lista clara dos campos esperados e seus valores válidos, semelhante ao que já existe no `EscolaUploadDialog`:
+
 ```
+Formato do arquivo:
+- Nome: Nome completo do ator educacional (obrigatório)
+- Email: Email (opcional)
+- Telefone: Telefone (opcional)
+- Escola: Nome ou CODESC da escola (obrigatório)
+- Segmento: anos_iniciais | anos_finais | ensino_medio
+- Componente: polivalente | lingua_portuguesa | matematica
+- Ano/Série: 1º Ano, 2º Ano ... 9º Ano, 1ª Série ...
+- Cargo: professor | coordenador | vice_diretor | diretor | equipe_tecnica_sme
+- Programa: escolas | regionais | redes_municipais
 
-### 3. Atualizar mapeamento de atores com programas (linhas 207-215)
-
-Combinar programas de `aap_programas` E `user_programas` para cada ator:
-
-```typescript
-const aapsWithProgramas: AAPWithPrograma[] = (rolesRes.data || []).map(role => {
-  // Programas legados (aap_programas)
-  const legacyProgramas = (aapProgramasRes.data || [])
-    .filter(p => p.aap_user_id === role.user_id)
-    .map(p => p.programa as ProgramaType);
-  // Programas novos (user_programas)
-  const newProgramas = (userProgramasRes.data || [])
-    .filter(p => p.user_id === role.user_id)
-    .map(p => p.programa as ProgramaType);
-  // Combinar sem duplicatas
-  const programas = [...new Set([...legacyProgramas, ...newProgramas])];
-  const profileItem = profilesData.find(p => p.id === role.user_id);
-  return { user_id: role.user_id, programas, nome: profileItem?.nome || 'Ator' };
-});
+Baixe o modelo para ver os valores válidos na aba "Valores Válidos".
 ```
-
-### 4. Renomear variavel interna (opcional mas recomendado)
-
-Renomear `acoesPorAAP` para `acoesPorAtor` em todas as referencias (~6 ocorrencias) para clareza do codigo. Tambem renomear `filteredAAPs` para `filteredAtores`, `totalAAPs` para `totalAtores`, e o state `aaps`/`setAaps` para `atores`/`setAtores`.
-
-Alternativamente, manter os nomes internos e so alterar o titulo visivel para minimizar a quantidade de mudancas. Optaremos por manter nomes internos para reduzir risco de erros.
 
 ### Resumo
 
 | Aspecto | Antes | Depois |
 |---|---|---|
-| Titulo do grafico | "por AAP" | "- Por Ator do Programa" |
-| Roles buscados | 3 legados | 3 legados + 5 novos (N2-N5) |
-| Fonte de programas | Apenas `aap_programas` | `aap_programas` + `user_programas` |
-| Nome padrao fallback | "AAP" | "Ator" |
+| Modelo Excel | 1 aba, 1 linha de exemplo sem guia | 2 abas: dados + aba "Valores Válidos" |
+| Dialog instrucional | Texto genérico | Lista detalhada de campos e valores aceitos |
+| Experiência de importação | Usuário precisa adivinhar os valores | Usuário tem referência clara no próprio arquivo |
