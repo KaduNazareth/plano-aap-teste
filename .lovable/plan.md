@@ -1,75 +1,144 @@
 
-# Corrigir Contagem de "Consultores / Gestores / Formadores" no Dashboard
+# Duas melhorias independentes
 
-## Diagnóstico completo
+## Melhoria 1 — Novo segmento "Anos Finais/Ensino Médio" exclusivo para Atores de Programa
 
-Consultando o banco diretamente, confirmamos:
+### Contexto
 
-| Papel | Usuários |
-|---|---|
-| N3 — Coordenador do Programa | 11 |
-| N4.1 — Consultor Pedagógico | 7 |
-| N2 — Gestor do Programa | 5 |
-| N4.2 — Gestor de Parceria (GPI) | 2 |
-| **Total** | **25 usuários distintos** |
+O segmento `anos_finais_ensino_medio` deve existir apenas nos formulários de cadastro/edição de atores de programa (N2–N5), não nos formulários de cadastro de professores/atores educacionais (onde os segmentos são distintos: `anos_finais` e `ensino_medio`).
 
-O dashboard conta todos os 25, pois a query em `AdminDashboard.tsx` inclui os papéis `gestor` (N2) e `n3_coordenador_programa` (N3) junto com os operacionais.
+### O que muda
 
-O número 9 da página `/atores` **não é o total real** — é o total filtrado pela visibilidade do usuário logado (N2 vê apenas N3+, N3 vê apenas N4+, etc.), ou seja, é um total de escopo, não o cadastro completo.
+**1. Migração SQL — atualizar a constraint em `profiles`**
 
-## Decisão necessária
+A constraint `profiles_segmento_check` (se existir) precisa ser atualizada para permitir o novo valor. A migração:
 
-O card no dashboard deve mostrar o **total real de todos os atores de programa cadastrados no sistema** (25), ou apenas um subconjunto específico? Com base na terminologia "Consultores / Gestores / Formadores", parece que o objetivo é incluir todos os papéis de programa (N2 a N5 + legados), o que é exatamente os 25.
+```sql
+-- Remover constraint antiga se existir
+ALTER TABLE public.profiles 
+  DROP CONSTRAINT IF EXISTS profiles_segmento_check;
 
-**O número 9 que aparece na página `/atores` está filtrado pelo contexto do usuário logado** — não é o total do sistema.
-
-## Solução proposta
-
-Dado que os 25 são de fato todos os atores de programa e a contagem está correta matematicamente, a opção mais adequada é **renomear o card** para deixar claro que inclui todos os níveis gerenciais e operacionais — e confirmar que o link vai para a página correta.
-
-Também é possível que o usuário queira contar **apenas os papéis operacionais** (N4.1, N4.2, N5 + legados), excluindo gestores e coordenadores de programa. Isso resultaria em:
-
-- N4.1 (CPed): 7
-- N4.2 (GPI): 2
-- N5 (Formador): 0
-- Legados (aap_*): 0
-- **Total operacional: 9** ← este seria o número que corresponde ao que o usuário vê na página /atores como Consultor/Formador
-
-Isso é coerente — a página `/atores` ao ser vista pelo admin mostra somente os operacionais (N4/N5) porque os gestores e coordenadores aparecem em outra seção ou o admin está logado como um nível que filtra esse resultado.
-
-## O que será alterado
-
-### `src/pages/admin/AdminDashboard.tsx`
-
-**Remover `gestor` e `n3_coordenador_programa` da query de roles** usada para o card "Consultores / Gestores / Formadores", mantendo apenas os perfis verdadeiramente operacionais (N4.1, N4.2, N5 e legados):
-
-```typescript
-supabase.from('user_roles').select('user_id, role').in('role', [
-  // Remover: 'gestor', 'n3_coordenador_programa'
-  'n4_1_cped', 'n4_2_gpi', 'n5_formador',
-  'aap_inicial', 'aap_portugues', 'aap_matematica'
-]),
+-- Recriar com novo valor
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_segmento_check 
+    CHECK (segmento IS NULL OR segmento = ANY (ARRAY[
+      'anos_iniciais', 'anos_finais', 'ensino_medio', 
+      'anos_finais_ensino_medio', 'nao_se_aplica'
+    ]));
 ```
 
-Isso resultará em 9 usuários — compatível com o que o usuário vê na página de referência.
+**2. `src/pages/admin/UsuariosPage.tsx` — adicionar option no renderSegmentoComponenteField**
 
-**Atualizar o título do card** para refletir melhor o escopo:
+O seletor de Segmento no formulário de criação/edição de usuários ganha a nova opção após "Anos Finais":
 
 ```tsx
-title="Consultores / Formadores"
-// ou manter "Consultores / Gestores / Formadores"
-// (gestores e coord. programa ficam representados em outra contagem se necessário)
+<SelectItem value="anos_finais_ensino_medio">Anos Finais / Ensino Médio</SelectItem>
 ```
 
-### Sem migração de banco necessária
+**3. `src/pages/admin/AtoresProgramaPage.tsx` — idem**
 
-Nenhuma mudança de schema é necessária — apenas ajuste da query de filtro de papéis no dashboard.
+Mesmo SelectItem adicionado ao seletor de Segmento no dialog "Alterar papel".
 
-## Resumo
+**4. Label de exibição nas tabelas**
 
-| Item | Detalhe |
+Ambas as tabelas já têm um mapa de labels para exibição das colunas Segmento. Adicionar a entrada:
+
+```typescript
+const segLabel: Record<string, string> = {
+  anos_iniciais: 'Anos Iniciais',
+  anos_finais: 'Anos Finais',
+  ensino_medio: 'Ensino Médio',
+  anos_finais_ensino_medio: 'Anos Finais/EM',  // ← novo
+  nao_se_aplica: 'N/A',
+};
+```
+
+O segmento **não aparece** em nenhum formulário de cadastro de professores/atores educacionais (tabela `professores`), pois esses formulários têm seus próprios selects independentes baseados em `segmentoLabels` do `mockData.ts`, que não precisam ser alterados.
+
+---
+
+## Melhoria 2 — Filtro de Tipo de Ator na lista de presença de Formação
+
+### Contexto
+
+Quando uma Formação é marcada como realizada, o sistema busca professores da escola filtrando por escola, componente, segmento e ano/série. O pedido é adicionar um filtro por cargo do ator participante: **Todos, Professor, Coordenador, Diretor, Vice-Diretor**.
+
+O campo `cargo` já existe na tabela `professores` com os valores: `professor`, `coordenador`, `vice_diretor`, `diretor`, `equipe_tecnica_sme`.
+
+### O que muda
+
+**1. `src/pages/admin/ProgramacaoPage.tsx` — campo `tipoAtorPresenca` no formulário de criação**
+
+Adicionar um novo campo ao `formData` chamado `tipoAtorPresenca` (default `'todos'`):
+
+```typescript
+tipoAtorPresenca: 'todos' as string,
+```
+
+E um novo seletor no formulário de criação de programação, visível apenas quando o tipo for `'formacao'`:
+
+```tsx
+{formData.tipo === 'formacao' && (
+  <div>
+    <label className="form-label">Tipo de Ator Participante</label>
+    <select
+      value={formData.tipoAtorPresenca}
+      onChange={(e) => setFormData({ ...formData, tipoAtorPresenca: e.target.value })}
+      className="input-field"
+    >
+      <option value="todos">Todos</option>
+      <option value="professor">Professor</option>
+      <option value="coordenador">Coordenador</option>
+      <option value="diretor">Diretor</option>
+      <option value="vice_diretor">Vice-Diretor</option>
+    </select>
+  </div>
+)}
+```
+
+**2. Persistir `tipoAtorPresenca` na tabela `programacoes`**
+
+A tabela `programacoes` já possui um campo `tags` (ARRAY). Para não precisar de migration, o `tipoAtorPresenca` será salvo como uma tag especial (ex: `cargo:professor`) no array `tags`. Alternativamente, adicionar uma coluna `tipo_ator_presenca text DEFAULT 'todos'` via migration.
+
+**Decisão**: migration é mais limpa e explícita — adicionar coluna `tipo_ator_presenca text DEFAULT 'todos'` na tabela `programacoes`:
+
+```sql
+ALTER TABLE public.programacoes
+  ADD COLUMN IF NOT EXISTS tipo_ator_presenca text DEFAULT 'todos';
+```
+
+E na interface `ProgramacaoDB`:
+
+```typescript
+tipo_ator_presenca: string | null;
+```
+
+**3. Salvar o campo ao criar/editar a programação**
+
+No handler de criação da programação, incluir `tipo_ator_presenca: formData.tipoAtorPresenca || 'todos'` no objeto enviado ao Supabase.
+
+**4. Usar o filtro ao buscar professores para a lista de presença**
+
+Na lógica que carrega `professoresPresenca` (linha ~797–841 de `ProgramacaoPage.tsx`), após os filtros de escola/componente/segmento/ano_serie, adicionar:
+
+```typescript
+if (selectedProgramacao.tipo_ator_presenca && selectedProgramacao.tipo_ator_presenca !== 'todos') {
+  query = query.eq('cargo', selectedProgramacao.tipo_ator_presenca);
+}
+```
+
+**5. Aplicar o mesmo filtro em `AAPRegistrarAcaoPage.tsx`**
+
+Esse arquivo tem lógica análoga de carregamento de professores para presença. Adicionar o mesmo filtro por `cargo` baseado em `selectedProgramacao.tipo_ator_presenca`.
+
+---
+
+## Resumo dos arquivos alterados
+
+| Arquivo | Alteração |
 |---|---|
-| Causa raiz | Query inclui N2 (Gestor) e N3 (Coord. Programa) além dos perfis operacionais |
-| Solução | Remover `gestor` e `n3_coordenador_programa` da lista de papéis da query |
-| Resultado esperado | Card mostrará 9 (somente N4.1, N4.2, N5 e legados) |
-| Arquivo alterado | `src/pages/admin/AdminDashboard.tsx` somente |
+| Nova migration SQL | Atualizar constraint `profiles_segmento_check` + coluna `tipo_ator_presenca` em `programacoes` |
+| `src/pages/admin/UsuariosPage.tsx` | Adicionar opção "Anos Finais / Ensino Médio" e label no mapa de exibição |
+| `src/pages/admin/AtoresProgramaPage.tsx` | Idem |
+| `src/pages/admin/ProgramacaoPage.tsx` | Campo `tipoAtorPresenca` no form, seletor na UI de criação, filtro na query de presença |
+| `src/pages/aap/AAPRegistrarAcaoPage.tsx` | Filtro por `cargo` na query de presença baseado em `tipo_ator_presenca` da programação |
