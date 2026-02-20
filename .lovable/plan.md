@@ -1,139 +1,152 @@
 
-# Atualizar Modelo de Importação em Lote de Programações
+# Adicionar opção "Não se aplica" nos campos Segmento, Componente e Ano/Série
 
-## Diagnóstico
+## Contexto
 
-O `ProgramacaoUploadDialog` está desatualizado em dois aspectos críticos:
+Os campos **Segmento**, **Componente** e **Ano/Série** são obrigatórios no formulário de cadastro de Atores Educacionais. Porém, para cargos como Diretor, Vice-Diretor e Equipe Técnica (SME), esses campos não fazem sentido — esses atores não pertencem a um segmento ou componente específico.
 
-1. **Tipos de ação obsoletos**: Valida apenas `formacao`, `visita` e `acompanhamento_aula` — sendo que `visita` não existe mais no sistema e `acompanhamento_aula` foi renomeado para `observacao_aula`. Os 13 novos tipos de ação não são reconhecidos.
+## Diagnóstico técnico
 
-2. **Valor incorreto de Componente**: A validação aceita `'portugues'` mas o sistema usa `'lingua_portuguesa'`.
+Existem três camadas a corrigir:
 
-3. **Modelo Excel desatualizado**: O template gerado só exemplifica `formacao` e usa a coluna `AAP` que hoje representa qualquer ator do programa.
+**1. Banco de dados — CHECK constraints**
+A tabela `professores` tem restrições que limitam os valores aceitos:
+- `professores_segmento_check`: aceita apenas `anos_iniciais`, `anos_finais`, `ensino_medio`
+- `professores_componente_check`: aceita apenas `polivalente`, `lingua_portuguesa`, `matematica`
+- `ano_serie`: campo texto livre, mas sem valor padrão para "não aplicável"
 
-## Análise: Quais tipos são importáveis em lote?
+Nenhum desses aceita um valor neutro como `nao_se_aplica`.
 
-A importação em lote serve para **agendar** programações futuras. Tipos que requerem preenchimento de instrumento, geração automática ou reflexão individual **não são candidatos**:
+**2. Frontend — Formulário (`ProfessoresPage.tsx`)**
+- Todos os três campos têm `required` no `<select>`
+- Segmento e Componente não oferecem opção vazia/nula
+- O `formData` inicializa `segmento` com `'anos_iniciais'` e `componente` com `'polivalente'` (pré-selecionados, sem opção de limpar)
 
-| Tipo | Importável? | Motivo |
-|---|---|---|
-| `formacao` | Sim | Agendamento simples |
-| `agenda_gestao` | Sim | Agendamento simples |
-| `devolutiva_pedagogica` | Sim | Agendamento simples |
-| `obs_engajamento_solidez` | Sim | Agendamento simples |
-| `obs_implantacao_programa` | Sim | Agendamento simples |
-| `obs_uso_dados` | Sim | Agendamento simples |
-| `qualidade_acomp_aula` | Sim | Agendamento simples |
-| `qualidade_implementacao` | Sim | Agendamento simples |
-| `qualidade_atpcs` | Sim | Agendamento simples |
-| `sustentabilidade_programa` | Sim | Agendamento simples |
-| `observacao_aula` | **Não** | Requer instrumento por professor no ato |
-| `acompanhamento_formacoes` | **Não** | Gerado automaticamente a partir de formações |
-| `autoavaliacao` | **Não** | Reflexão individual sem entidade fixa |
-| `avaliacao_formacao_participante` | **Não** | Formulário preenchido pelo participante |
-| `lista_presenca` | **Não** | Gerada junto com a formação |
-| `participa_formacoes` | **Não** | Desativado do sistema |
+**3. Tipos TypeScript (`src/types/index.ts`)**
+- `Segmento` não inclui `'nao_se_aplica'`
+- `ComponenteCurricular` não inclui `'nao_se_aplica'`
 
-## Alterações no `src/components/forms/ProgramacaoUploadDialog.tsx`
+## Solução
 
-### 1. Atualizar lista de tipos válidos
+### Migração SQL
 
+Adicionar `'nao_se_aplica'` às constraints existentes:
+
+```sql
+-- Adicionar 'nao_se_aplica' às constraints de segmento e componente
+ALTER TABLE public.professores DROP CONSTRAINT IF EXISTS professores_segmento_check;
+ALTER TABLE public.professores ADD CONSTRAINT professores_segmento_check
+  CHECK (segmento = ANY (ARRAY[
+    'anos_iniciais', 'anos_finais', 'ensino_medio', 'nao_se_aplica'
+  ]));
+
+ALTER TABLE public.professores DROP CONSTRAINT IF EXISTS professores_componente_check;
+ALTER TABLE public.professores ADD CONSTRAINT professores_componente_check
+  CHECK (componente = ANY (ARRAY[
+    'polivalente', 'lingua_portuguesa', 'matematica', 'nao_se_aplica'
+  ]));
+```
+
+### Alterações em `src/types/index.ts`
+
+Expandir os tipos:
 ```typescript
-// Antes
-const tiposValidos = ['formacao', 'visita', 'acompanhamento_aula'];
-
-// Depois
-const tiposImportaveis = [
-  'formacao',
-  'agenda_gestao',
-  'devolutiva_pedagogica',
-  'obs_engajamento_solidez',
-  'obs_implantacao_programa',
-  'obs_uso_dados',
-  'qualidade_acomp_aula',
-  'qualidade_implementacao',
-  'qualidade_atpcs',
-  'sustentabilidade_programa',
-] as const;
+export type Segmento = 'anos_iniciais' | 'anos_finais' | 'ensino_medio' | 'nao_se_aplica';
+export type ComponenteCurricular = 'polivalente' | 'lingua_portuguesa' | 'matematica' | 'nao_se_aplica';
 ```
 
-### 2. Corrigir valor de Componente
+### Alterações em `src/pages/admin/ProfessoresPage.tsx`
 
+**1. Labels:** Adicionar `nao_se_aplica` nos mapas de display:
 ```typescript
-// Antes
-const componentesValidos = ['polivalente', 'portugues', 'matematica'];
+const segmentoLabels: Record<string, string> = {
+  anos_iniciais: 'Anos Iniciais',
+  anos_finais: 'Anos Finais',
+  ensino_medio: 'Ensino Médio',
+  nao_se_aplica: 'Não se aplica',
+};
 
-// Depois
-const componentesValidos = ['polivalente', 'lingua_portuguesa', 'matematica'];
+const componenteLabels: Record<string, string> = {
+  polivalente: 'Polivalente',
+  lingua_portuguesa: 'Língua Portuguesa',
+  matematica: 'Matemática',
+  nao_se_aplica: 'Não se aplica',
+};
 ```
 
-### 3. Atualizar lógica de validação de Segmento/Componente/Ano
-
-Atualmente, apenas `visita` isenta esses campos. Na nova lógica, os tipos que **não** usam Segmento/Componente/Ano (conforme `ACAO_FORM_CONFIG`) devem ser isentos. Importar a configuração `ACAO_FORM_CONFIG` para determinar dinamicamente quais campos são opcionais por tipo:
-
+**2. Estado inicial:** Alterar o valor padrão para `'nao_se_aplica'` em ambos os campos, e `ano_serie` permanece vazio:
 ```typescript
-import { ACAO_FORM_CONFIG } from '@/config/acaoPermissions';
-
-// Na validação de cada linha:
-const config = ACAO_FORM_CONFIG[tipo as AcaoTipo];
-const requiresSegmento = config?.showSegmento ?? true;
-const requiresAnoSerie = config?.showAnoSerie ?? true;
+segmento: 'nao_se_aplica' as Segmento,
+componente: 'nao_se_aplica' as ComponenteCurricular,
+ano_serie: '',
 ```
 
-### 4. Atualizar instruções no dialog
+**3. Formulário:** Remover o `required` dos três selects e adicionar a opção "Não se aplica" no início de cada lista:
 
-Substituir os tipos exibidos na seção de formato:
+Para **Segmento** — adicionar `nao_se_aplica` como primeira opção, remover `required`:
+```tsx
+<select value={formData.segmento} onChange={...} className="input-field">
+  <option value="nao_se_aplica">Não se aplica</option>
+  <option value="anos_iniciais">Anos Iniciais</option>
+  <option value="anos_finais">Anos Finais</option>
+  <option value="ensino_medio">Ensino Médio</option>
+</select>
 ```
-TIPO: formacao | agenda_gestao | devolutiva_pedagogica | obs_engajamento_solidez |
-      obs_implantacao_programa | obs_uso_dados | qualidade_acomp_aula |
-      qualidade_implementacao | qualidade_atpcs | sustentabilidade_programa
+
+Para **Componente** — idem:
+```tsx
+<select value={formData.componente} onChange={...} className="input-field">
+  <option value="nao_se_aplica">Não se aplica</option>
+  <option value="polivalente">Polivalente</option>
+  ...
+</select>
 ```
 
-Renomear coluna `AAP` → `ATOR` na instrução (mantendo retrocompatibilidade na leitura do arquivo).
+Para **Ano/Série** — adicionar opção "Não se aplica" e remover `required`. Quando segmento for `nao_se_aplica`, mostrar apenas essa opção:
+```tsx
+<select value={formData.ano_serie} onChange={...} className="input-field">
+  <option value="">Não se aplica</option>
+  {formData.segmento !== 'nao_se_aplica' && 
+    anoSerieOptions[formData.segmento]?.map(ano => (
+      <option key={ano} value={ano}>{ano}</option>
+    ))
+  }
+</select>
+```
 
-Adicionar nota explicativa: *"Tipos como Observação de Aula, Autoavaliação e Lista de Presença não podem ser importados em lote pois requerem preenchimento de instrumento no momento do registro."*
+**4. Quando segmento muda para `nao_se_aplica`:** Resetar componente e ano/série também:
+```typescript
+onChange={(e) => setFormData({ 
+  ...formData, 
+  segmento: e.target.value as Segmento,
+  componente: e.target.value === 'nao_se_aplica' ? 'nao_se_aplica' : formData.componente,
+  ano_serie: ''
+})}
+```
 
-### 5. Atualizar o modelo Excel (duas abas)
+**5. Labels na tabela e no import:** Atualizar `segmentoMap` e `componenteMap` no parse do import para aceitar `nao_se_aplica`:
+```typescript
+const segmentoMap = {
+  ...existing,
+  'nao_se_aplica': 'nao_se_aplica',
+  'nao se aplica': 'nao_se_aplica',
+  'n/a': 'nao_se_aplica',
+};
+```
 
-**Aba 1 — "Programacoes"**: Linha de exemplo com `formacao` (mais comum), coluna renomeada para `ATOR`.
+**6. Modelo Excel:** Adicionar `nao_se_aplica` na aba "Valores Válidos" do template.
 
-**Aba 2 — "Tipos e Valores Válidos"**: Tabela de referência:
+## Fluxo após a mudança
 
-| Campo | Valor | Descrição |
-|---|---|---|
-| TIPO | formacao | Formação |
-| TIPO | agenda_gestao | Agenda de Gestão |
-| TIPO | devolutiva_pedagogica | Devolutiva Pedagógica |
-| TIPO | obs_engajamento_solidez | Obs. – Engajamento e Solidez |
-| TIPO | obs_implantacao_programa | Obs. – Implantação do Programa |
-| TIPO | obs_uso_dados | Obs. Uso Pedagógico de Dados |
-| TIPO | qualidade_acomp_aula | Qualidade Acomp. de Aula (Coord.) |
-| TIPO | qualidade_implementacao | Qualidade da Implementação |
-| TIPO | qualidade_atpcs | Qualidade de ATPCs |
-| TIPO | sustentabilidade_programa | Sustentabilidade e Aprendizado |
-| SEGMENTO | anos_iniciais | Anos Iniciais |
-| SEGMENTO | anos_finais | Anos Finais |
-| SEGMENTO | ensino_medio | Ensino Médio |
-| COMPONENTE | polivalente | Polivalente |
-| COMPONENTE | lingua_portuguesa | Língua Portuguesa |
-| COMPONENTE | matematica | Matemática |
-| PROGRAMA | escolas | Programa de Escolas |
-| PROGRAMA | regionais | Regionais de Ensino |
-| PROGRAMA | redes_municipais | Redes Municipais |
+- Ao abrir o formulário de **Novo Ator**, os três campos iniciam em "Não se aplica"
+- O usuário pode escolher um segmento específico (Anos Iniciais, etc.) e o formulário habilita as opções de Ano/Série correspondentes
+- Ao escolher "Não se aplica" no segmento, componente e ano/série também ficam em "Não se aplica"
+- Diretor, Vice-Diretor e Equipe Técnica SME podem ser cadastrados sem informar segmento/componente
 
-### 6. Retrocompatibilidade
+## Arquivos alterados
 
-Manter leitura das colunas antigas no parse para não quebrar arquivos já existentes:
-- `AAP` ou `ATOR` ou `FORMADOR` → campo do ator
-- Tipos legados `visita` → mapeado para `observacao_aula` com aviso; `acompanhamento_aula` → mapeado para `observacao_aula` com aviso
-
-## Resumo das alterações
-
-| Aspecto | Antes | Depois |
-|---|---|---|
-| Tipos válidos | 3 (2 legados obsoletos) | 10 tipos atuais do sistema |
-| Componente | `portugues` (errado) | `lingua_portuguesa` (correto) |
-| Segmento/Componente obrigatório | Opcional só para `visita` | Opcional dinamicamente por tipo via `ACAO_FORM_CONFIG` |
-| Coluna do ator | `AAP` | `ATOR` (lendo ambos) |
-| Modelo Excel | 1 aba, sem referência de tipos | 2 abas com guia completo |
-| Tipos não importáveis | Sem indicação | Removidos + nota explicativa no dialog |
+| Arquivo | Alteração |
+|---|---|
+| Nova migration SQL | Expandir constraints de segmento e componente |
+| `src/types/index.ts` | Adicionar `nao_se_aplica` nos tipos |
+| `src/pages/admin/ProfessoresPage.tsx` | Labels, estado inicial, formulário, import map, modelo Excel |
