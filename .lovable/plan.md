@@ -1,181 +1,168 @@
 
-# Exclusão em Lote no Calendário de Programação
+# Adicionar Segmento e Componente opcionais para Atores de Programa
 
-## Contexto e padrão existente
+## Contexto
 
-A página `ProgramacaoPage.tsx` já possui:
-- Exclusão individual via `AlertDialog` (restrita a `isAdmin`, botão de lixeira em cada card)
-- Dois modos de visualização: **Calendário** e **Lista**
-- O array `filteredProgramacoes` é compartilhado entre as duas views
+Os campos Segmento (Anos Iniciais, Anos Finais, Ensino Médio, Não se aplica) e Componente (Polivalente, Língua Portuguesa, Matemática, Não se aplica) já existem na tabela `professores` (atores educacionais locais). O pedido é torná-los disponíveis também para os usuários de programa — Consultores (N4), Gestores (N2/N3), Formadores (N5) etc.
 
-A exclusão em lote vai seguir o mesmo padrão já implementado em `ProfessoresPage.tsx` e `RegistrosPage.tsx`.
+Esses campos não existem na tabela `profiles` nem em nenhuma tabela de vínculos de usuários de programa, então são necessárias:
+1. Uma migração para adicionar as colunas na tabela `profiles`
+2. Atualização dos dois formulários de gestão
 
-## Permissões
+## Decisões de design
 
-A exclusão individual de programações já é restrita a `isAdmin`. A exclusão em lote seguirá a mesma regra — somente administradores poderão ver e usar essa funcionalidade.
+- **Opcionais**: campos nullable, sem validação obrigatória
+- **Ambos os locais**: aparecem em `/usuarios` (Gestão de Usuários) e `/atores` (Atores dos Programas)
+- **Mesmos valores** já usados no sistema: `anos_iniciais`, `anos_finais`, `ensino_medio`, `nao_se_aplica` para Segmento; `polivalente`, `lingua_portuguesa`, `matematica`, `nao_se_aplica` para Componente
+- **Exibição na tabela**: colunas adicionais mostrando os valores ou "—" quando não preenchidos
 
-## Dependências do banco de dados
+## Migração SQL
 
-Ao excluir uma programação, é necessário verificar e remover primeiro os registros relacionados:
-1. `registros_acao` → `programacao_id` (registros que referenciam a programação)
-2. `programacoes` → exclusão do registro principal
+Adicionar duas colunas opcionais na tabela `profiles`:
 
-## O que será implementado
+```sql
+ALTER TABLE public.profiles 
+  ADD COLUMN IF NOT EXISTS segmento text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS componente text DEFAULT NULL;
 
-### Novos estados
+-- Constraint para valores válidos (com NULL permitido)
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_segmento_check 
+    CHECK (segmento IS NULL OR segmento = ANY (ARRAY[
+      'anos_iniciais', 'anos_finais', 'ensino_medio', 'nao_se_aplica'
+    ]));
 
-```typescript
-const [selectedProgramacaoIds, setSelectedProgramacaoIds] = useState<Set<string>>(new Set());
-const [isBatchDeleting, setIsBatchDeleting] = useState(false);
-const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false);
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_componente_check 
+    CHECK (componente IS NULL OR componente = ANY (ARRAY[
+      'polivalente', 'lingua_portuguesa', 'matematica', 'nao_se_aplica'
+    ]));
 ```
 
-### Limpar seleção quando filtros mudam
+## Alterações no frontend
+
+### 1. `src/contexts/AuthContext.tsx`
+
+Adicionar `segmento` e `componente` à interface `UserProfile`:
 
 ```typescript
-useEffect(() => {
-  setSelectedProgramacaoIds(new Set());
-}, [programaFilter, tipoFilter, currentMonth]);
+export interface UserProfile {
+  id: string;
+  nome: string;
+  email: string;
+  telefone?: string;
+  role: AppRole;
+  programas?: ProgramaType[];
+  entidadeIds?: string[];
+  mustChangePassword?: boolean;
+  segmento?: string | null;
+  componente?: string | null;
+}
 ```
 
-### Helpers de seleção
+E no `fetchProfile` incluir os campos no select e no objeto retornado.
 
+### 2. `src/pages/admin/UsuariosPage.tsx`
+
+**Interface `UserWithRole`** — adicionar:
 ```typescript
-const allFilteredIds = filteredProgramacoes.map(p => p.id);
-const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedProgramacaoIds.has(id));
-
-const handleToggleSelectAll = () => {
-  if (allSelected) setSelectedProgramacaoIds(new Set());
-  else setSelectedProgramacaoIds(new Set(allFilteredIds));
-};
-
-const handleToggleSelect = (id: string) => {
-  setSelectedProgramacaoIds(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-};
+segmento: string | null;
+componente: string | null;
 ```
 
-### Função de exclusão em lote
-
+**`formData`** — adicionar:
 ```typescript
-const handleBatchDeleteProgramacoes = async () => {
-  if (selectedProgramacaoIds.size === 0) return;
-  setIsBatchDeleting(true);
-  let successCount = 0;
-  let errorCount = 0;
-
-  for (const id of selectedProgramacaoIds) {
-    try {
-      // Desvincular registros_acao que referenciam esta programação
-      await supabase.from('registros_acao')
-        .update({ programacao_id: null })
-        .eq('programacao_id', id);
-      
-      const { error } = await supabase.from('programacoes').delete().eq('id', id);
-      if (error) throw error;
-      successCount++;
-    } catch (error) {
-      console.error(`Error deleting programacao ${id}:`, error);
-      errorCount++;
-    }
-  }
-
-  if (successCount > 0) toast.success(`${successCount} programação(ões) excluída(s) com sucesso!`);
-  if (errorCount > 0) toast.error(`${errorCount} programação(ões) não puderam ser excluídas.`);
-
-  setSelectedProgramacaoIds(new Set());
-  setIsBatchDeleting(false);
-  setIsBatchDeleteDialogOpen(false);
-  fetchProgramacoes();
-};
+segmento: '' as string,
+componente: '' as string,
 ```
 
-> Nota: A coluna `programacao_id` em `registros_acao` é nullable, então é seguro definí-la como `null` em vez de excluir o registro. Isso preserva o histórico de ações registradas.
+**`fetchUsers`** — o select de `profiles` já usa `'*'`, então os novos campos são retornados automaticamente. Mapear para o objeto.
 
-## Onde os checkboxes aparecem
+**`resetForm`** — incluir `segmento: '', componente: ''`.
 
-### View de Lista (mais natural para seleção em lote)
+**`openDialog`** — popular os campos ao editar.
 
-A view de lista já é uma tabela HTML com colunas bem definidas. Será adicionado:
-- Uma coluna de checkbox no `<th>` com "selecionar todos" filtrados
-- Um checkbox por linha no `<td>` correspondente
-- A coluna de checkbox só aparece para `isAdmin`
+**`handleCreateUser` / `handleUpdateUser`** — passar `segmento` e `componente` para a edge function `manage-users`. A edge function precisará ser atualizada para aceitar e salvar esses campos.
 
-### View de Calendário
-
-No painel lateral direito ("Ações do dia selecionado"), cada card de evento receberá um checkbox no canto superior esquerdo. Isso permite ao admin selecionar programações específicas dia a dia.
-
-### Barra de ação flutuante
-
-Exibida acima do conteúdo (tanto no modo calendário quanto no modo lista) quando há itens selecionados:
+**`renderSegmentoComponenteField()`** — novo bloco de UI para os dois selects:
 
 ```tsx
-{isAdmin && selectedProgramacaoIds.size > 0 && (
-  <div className="flex items-center justify-between gap-4 p-3 mb-3 rounded-lg bg-primary/10 border border-primary/20">
-    <span className="text-sm font-medium">
-      {selectedProgramacaoIds.size} programação(ões) selecionada(s)
-    </span>
-    <div className="flex items-center gap-2">
-      <Button variant="ghost" size="sm" onClick={() => setSelectedProgramacaoIds(new Set())}>
-        Limpar seleção
-      </Button>
-      <Button
-        variant="destructive"
-        size="sm"
-        onClick={() => setIsBatchDeleteDialogOpen(true)}
-        disabled={isBatchDeleting}
+const renderSegmentoComponenteField = () => (
+  <div className="grid grid-cols-2 gap-3">
+    <div>
+      <Label>Segmento</Label>
+      <Select
+        value={formData.segmento || 'nao_informado'}
+        onValueChange={(v) => setFormData({ ...formData, segmento: v === 'nao_informado' ? '' : v })}
       >
-        <Trash2 size={14} className="mr-1" />
-        Excluir selecionadas
-      </Button>
+        <SelectTrigger>
+          <SelectValue placeholder="Selecione..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="nao_informado">Não informado</SelectItem>
+          <SelectItem value="anos_iniciais">Anos Iniciais</SelectItem>
+          <SelectItem value="anos_finais">Anos Finais</SelectItem>
+          <SelectItem value="ensino_medio">Ensino Médio</SelectItem>
+          <SelectItem value="nao_se_aplica">Não se aplica</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div>
+      <Label>Componente</Label>
+      <Select
+        value={formData.componente || 'nao_informado'}
+        onValueChange={(v) => setFormData({ ...formData, componente: v === 'nao_informado' ? '' : v })}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Selecione..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="nao_informado">Não informado</SelectItem>
+          <SelectItem value="polivalente">Polivalente</SelectItem>
+          <SelectItem value="lingua_portuguesa">Língua Portuguesa</SelectItem>
+          <SelectItem value="matematica">Matemática</SelectItem>
+          <SelectItem value="nao_se_aplica">Não se aplica</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   </div>
-)}
+);
 ```
 
-### AlertDialog de confirmação
+**Formulários de criação e edição** — adicionar `{renderSegmentoComponenteField()}` antes dos botões de ação.
 
-```tsx
-<AlertDialog open={isBatchDeleteDialogOpen} onOpenChange={setIsBatchDeleteDialogOpen}>
-  <AlertDialogContent>
-    <AlertDialogHeader>
-      <AlertDialogTitle>Confirmar Exclusão em Lote</AlertDialogTitle>
-      <AlertDialogDescription>
-        Tem certeza que deseja excluir {selectedProgramacaoIds.size} programação(ões)?
-        Esta ação não pode ser desfeita. Os registros de ações vinculados serão desvinculados
-        mas não excluídos.
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-    <AlertDialogFooter>
-      <AlertDialogCancel disabled={isBatchDeleting}>Cancelar</AlertDialogCancel>
-      <AlertDialogAction
-        onClick={handleBatchDeleteProgramacoes}
-        disabled={isBatchDeleting}
-        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-      >
-        {isBatchDeleting ? (
-          <><Loader2 size={14} className="mr-1 animate-spin" />Excluindo...</>
-        ) : (
-          `Excluir ${selectedProgramacaoIds.size} programação(ões)`
-        )}
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
+**Colunas da tabela** — adicionar coluna "Segmento / Componente" exibindo os valores ou `—`.
+
+### 3. `src/pages/admin/AtoresProgramaPage.tsx`
+
+**Interface `ActorUser`** — adicionar:
+```typescript
+segmento: string | null;
+componente: string | null;
 ```
 
-## Resumo das alterações
+**`formData`** — adicionar `segmento: '', componente: ''`.
 
-| Elemento | Detalhe |
+**`fetchData`** — adicionar `segmento, componente` ao select de `profiles`.
+
+**`openDialog`** — popular os campos ao editar.
+
+**`handleSaveRole`** — salvar `segmento` e `componente` diretamente na tabela `profiles` via `supabase.from('profiles').update(...)`.
+
+**UI do dialog "Alterar papel"** — adicionar `renderSegmentoComponenteField()` (componente compartilhado ou duplicado).
+
+**Colunas da tabela** — adicionar coluna "Segmento / Componente".
+
+### 4. `supabase/functions/manage-users/index.ts`
+
+Adicionar `segmento` e `componente` aos parâmetros aceitos nas ações `create` e `update`, salvando-os no `profiles` via `supabase.from('profiles').update(...)` após criar/atualizar o usuário.
+
+## Resumo dos arquivos alterados
+
+| Arquivo | Alteração |
 |---|---|
-| Arquivo alterado | `src/pages/admin/ProgramacaoPage.tsx` |
-| Novos estados | `selectedProgramacaoIds`, `isBatchDeleting`, `isBatchDeleteDialogOpen` |
-| Coluna checkbox | Adicionada na view de lista; checkboxes nos cards da view de calendário |
-| Barra flutuante | Exibida em ambas as views quando `selectedProgramacaoIds.size > 0` |
-| Confirmação | `AlertDialog` com contagem e aviso sobre desvinculação de registros |
-| Dependências | `registros_acao.programacao_id` definido como `null` (preserva histórico) |
-| Permissão | Somente `isAdmin` (igual à exclusão individual) |
-| Sem migração | Nenhuma mudança de schema necessária |
+| Nova migration SQL | Adicionar `segmento` e `componente` nullable em `profiles` |
+| `src/contexts/AuthContext.tsx` | Adicionar campos à interface `UserProfile` e ao fetch |
+| `src/pages/admin/UsuariosPage.tsx` | Interface, formData, form UI, colunas, handlers create/update |
+| `src/pages/admin/AtoresProgramaPage.tsx` | Interface, formData, form UI, colunas, handler save |
+| `supabase/functions/manage-users/index.ts` | Suporte a `segmento` e `componente` nas ações create/update |
