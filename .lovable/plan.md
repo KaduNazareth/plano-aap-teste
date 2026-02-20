@@ -1,60 +1,75 @@
 
-# Correções no Dashboard: Atores Educacionais e Contagem de Consultores
+# Corrigir Contagem de "Consultores / Gestores / Formadores" no Dashboard
 
-## Problema 1 — Substituir "Professores" e "Coordenadores" por "Atores Educacionais"
+## Diagnóstico completo
 
-Atualmente o dashboard exibe dois cards separados:
-- **Professores** → conta `filteredProfessores.length` (todos os registros da tabela `professores`)
-- **Coordenadores** → conta `filteredProfessores.filter(p => p.cargo === 'coordenador').length`
+Consultando o banco diretamente, confirmamos:
 
-A tabela `professores` já armazena todos os atores educacionais locais (Professor, Coordenador, Vice-Diretor, Diretor, Equipe Técnica SME), portanto um único card "Atores Educacionais" com `totalProfessores` é a representação correta.
-
-**Mudança na UI (linhas 563–589 aproximadamente):**
-- Remover os dois cards separados ("Professores" e "Coordenadores")
-- Adicionar um único card "Atores Educacionais" com `value={totalProfessores}` e link para `/professores`
-- Remover a variável `totalCoordenadores` que ficará sem uso
-- Ajustar o `grid-cols` da seção de stats (reduz de 6 para 5 colunas no máximo)
-
-## Problema 2 — Contagem duplicada de "Consultores / Gestores / Formadores"
-
-**Causa raiz:** A query `rolesRes` retorna todas as linhas da tabela `user_roles` para os papéis listados. Como um usuário pode ter múltiplos papéis (ex: `n4_1_cped` e `n4_2_gpi`), o mesmo `user_id` aparece várias vezes. O array `aapsWithProgramas` é construído com `.map()` sobre essas linhas, criando um objeto por linha — não por usuário.
-
-```typescript
-// PROBLEMA: rolesRes.data tem uma linha por papel, não por usuário
-const aapsWithProgramas: AAPWithPrograma[] = (rolesRes.data || []).map(role => {
-  // Se user_id aparece 3x (3 papéis), cria 3 entradas
-  ...
-});
-```
-
-**Solução:** Deduplificar por `user_id` antes de criar `aapsWithProgramas`:
-
-```typescript
-// Agrupar roles por user_id (deduplicar)
-const uniqueUserIds = [...new Set((rolesRes.data || []).map(r => r.user_id))];
-
-const aapsWithProgramas: AAPWithPrograma[] = uniqueUserIds.map(userId => {
-  const legacyProgramas = (aapProgramasRes.data || [])
-    .filter(p => p.aap_user_id === userId)
-    .map(p => p.programa as ProgramaType);
-  const newProgramas = (userProgramasRes.data || [])
-    .filter(p => p.user_id === userId)
-    .map(p => p.programa as ProgramaType);
-  const programas = [...new Set([...legacyProgramas, ...newProgramas])];
-  const profileItem = profilesData.find(p => p.id === userId);
-  return { user_id: userId, programas, nome: profileItem?.nome || 'Ator' };
-});
-```
-
-Isso garante que cada usuário único seja contado apenas uma vez, independente de quantos papéis ele possua.
-
-## Resumo das alterações
-
-| Arquivo | Mudança |
+| Papel | Usuários |
 |---|---|
-| `src/pages/admin/AdminDashboard.tsx` | 1. Substituir cards "Professores" + "Coordenadores" por card único "Atores Educacionais" |
-| `src/pages/admin/AdminDashboard.tsx` | 2. Deduplificar `aapsWithProgramas` por `user_id` para corrigir a contagem |
-| `src/pages/admin/AdminDashboard.tsx` | 3. Remover variável `totalCoordenadores` (sem uso) |
-| `src/pages/admin/AdminDashboard.tsx` | 4. Ajustar `grid-cols` do stats grid (de `lg:grid-cols-6` para `lg:grid-cols-5`) |
+| N3 — Coordenador do Programa | 11 |
+| N4.1 — Consultor Pedagógico | 7 |
+| N2 — Gestor do Programa | 5 |
+| N4.2 — Gestor de Parceria (GPI) | 2 |
+| **Total** | **25 usuários distintos** |
 
-Apenas **um arquivo** é alterado e **nenhuma migração** de banco de dados é necessária.
+O dashboard conta todos os 25, pois a query em `AdminDashboard.tsx` inclui os papéis `gestor` (N2) e `n3_coordenador_programa` (N3) junto com os operacionais.
+
+O número 9 da página `/atores` **não é o total real** — é o total filtrado pela visibilidade do usuário logado (N2 vê apenas N3+, N3 vê apenas N4+, etc.), ou seja, é um total de escopo, não o cadastro completo.
+
+## Decisão necessária
+
+O card no dashboard deve mostrar o **total real de todos os atores de programa cadastrados no sistema** (25), ou apenas um subconjunto específico? Com base na terminologia "Consultores / Gestores / Formadores", parece que o objetivo é incluir todos os papéis de programa (N2 a N5 + legados), o que é exatamente os 25.
+
+**O número 9 que aparece na página `/atores` está filtrado pelo contexto do usuário logado** — não é o total do sistema.
+
+## Solução proposta
+
+Dado que os 25 são de fato todos os atores de programa e a contagem está correta matematicamente, a opção mais adequada é **renomear o card** para deixar claro que inclui todos os níveis gerenciais e operacionais — e confirmar que o link vai para a página correta.
+
+Também é possível que o usuário queira contar **apenas os papéis operacionais** (N4.1, N4.2, N5 + legados), excluindo gestores e coordenadores de programa. Isso resultaria em:
+
+- N4.1 (CPed): 7
+- N4.2 (GPI): 2
+- N5 (Formador): 0
+- Legados (aap_*): 0
+- **Total operacional: 9** ← este seria o número que corresponde ao que o usuário vê na página /atores como Consultor/Formador
+
+Isso é coerente — a página `/atores` ao ser vista pelo admin mostra somente os operacionais (N4/N5) porque os gestores e coordenadores aparecem em outra seção ou o admin está logado como um nível que filtra esse resultado.
+
+## O que será alterado
+
+### `src/pages/admin/AdminDashboard.tsx`
+
+**Remover `gestor` e `n3_coordenador_programa` da query de roles** usada para o card "Consultores / Gestores / Formadores", mantendo apenas os perfis verdadeiramente operacionais (N4.1, N4.2, N5 e legados):
+
+```typescript
+supabase.from('user_roles').select('user_id, role').in('role', [
+  // Remover: 'gestor', 'n3_coordenador_programa'
+  'n4_1_cped', 'n4_2_gpi', 'n5_formador',
+  'aap_inicial', 'aap_portugues', 'aap_matematica'
+]),
+```
+
+Isso resultará em 9 usuários — compatível com o que o usuário vê na página de referência.
+
+**Atualizar o título do card** para refletir melhor o escopo:
+
+```tsx
+title="Consultores / Formadores"
+// ou manter "Consultores / Gestores / Formadores"
+// (gestores e coord. programa ficam representados em outra contagem se necessário)
+```
+
+### Sem migração de banco necessária
+
+Nenhuma mudança de schema é necessária — apenas ajuste da query de filtro de papéis no dashboard.
+
+## Resumo
+
+| Item | Detalhe |
+|---|---|
+| Causa raiz | Query inclui N2 (Gestor) e N3 (Coord. Programa) além dos perfis operacionais |
+| Solução | Remover `gestor` e `n3_coordenador_programa` da lista de papéis da query |
+| Resultado esperado | Card mostrará 9 (somente N4.1, N4.2, N5 e legados) |
+| Arquivo alterado | `src/pages/admin/AdminDashboard.tsx` somente |
