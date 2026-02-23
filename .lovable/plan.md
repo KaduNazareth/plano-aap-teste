@@ -1,62 +1,78 @@
 
 
-# Ações Previstas x Realizadas por Tipo - Considerar todos os tipos
+# Pontos Observados - Acesso N1 a N4.2 com filtros por escopo
 
-## Problema atual
+## Resumo
 
-O gráfico "Ações Previstas x Realizadas - Por Tipo" no dashboard está hardcoded com apenas 3 tipos:
-- Formação
-- Visita
-- Acompanhamento
+Tornar a pagina `/pontos-observados` acessivel para os niveis N1 ate N4.2 (excluindo N5 em diante), aplicando filtros de programa, entidade e acao de acordo com o escopo de cada perfil.
 
-O sistema suporta 16+ tipos de ações (definidos em `acaoPermissions.ts`). O gráfico deveria considerar **todos** os tipos possíveis, mas só exibir aqueles que têm pelo menos 1 ação programada.
+## 1. Adicionar rota ao ALLOWED_ROUTES (AppLayout.tsx)
 
-## Solução
+Adicionar `/pontos-observados` nas listas de rotas permitidas para os tiers `manager` e `operational`:
 
-Alterar o cálculo de `acoesPorTipo` em `src/pages/admin/AdminDashboard.tsx` (linhas 390-406).
+- **manager** (N2, N3): adicionar `/pontos-observados`
+- **operational** (N4.1, N4.2, N5): adicionar `/pontos-observados` — o controle fino (excluir N5) sera feito na pagina e no menu
 
-### Antes
+## 2. Adicionar ao menu do operational com filtro de role (Sidebar.tsx)
 
-```typescript
-const acoesPorTipo = [
-  { name: 'Formação', Previstas: ..., Realizadas: ... },
-  { name: 'Visita', Previstas: ..., Realizadas: ... },
-  { name: 'Acompanhamento', Previstas: ..., Realizadas: ... }
-];
-```
+O `operationalMenuItems` e estatico e atende N4.1, N4.2 e N5. Para exibir "Pontos Observados" apenas para N4.1 e N4.2:
 
-### Depois
+- Alterar `getMenuItems` para receber o role do usuario
+- Quando tier for `operational`, filtrar o item "Pontos Observados" se o role for `n5_formador`
 
-```typescript
-import { ACAO_TIPOS, ACAO_TYPE_INFO } from '@/config/acaoPermissions';
+Alternativa mais simples: adicionar o item ao array `operationalMenuItems` e filtrar dinamicamente em `SidebarContent` com base no `profile.role`, removendo o item para N5.
 
-const acoesPorTipo = ACAO_TIPOS
-  .map(tipo => {
-    const previstas = filteredProgramacoes.filter(p => p.tipo === tipo).length;
-    const realizadas = filteredProgramacoes.filter(p => p.tipo === tipo && p.status === 'realizada').length;
-    return {
-      name: ACAO_TYPE_INFO[tipo].label,
-      Previstas: previstas,
-      Realizadas: realizadas
-    };
-  })
-  .filter(item => item.Previstas > 0);
-```
+## 3. Aplicar escopo de dados na PontosObservadosPage.tsx
 
-A lógica:
-1. Itera sobre **todos** os tipos de ação conhecidos (`ACAO_TIPOS`)
-2. Calcula previstas e realizadas para cada tipo usando `filteredProgramacoes` (que já respeita os filtros de programa, escola e componente)
-3. Filtra para exibir apenas tipos com pelo menos 1 ação prevista (`Previstas > 0`)
-4. Usa os labels amigáveis de `ACAO_TYPE_INFO` para os nomes no gráfico
+Atualmente a pagina carrega **todas** as formacoes realizadas sem restricao. Precisa aplicar:
 
-## Detalhes técnicos
+### N1 (admin)
+- Sem restricao — ve tudo
 
-| Item | Detalhe |
+### N2 / N3 (manager)
+- Filtrar por `user_programas` do usuario logado
+- As formacoes retornadas devem ter `programa` intersectando com os programas do usuario
+- O filtro de Programa no UI deve mostrar apenas os programas vinculados
+
+### N4.1 / N4.2 (operational)
+- Filtrar por `user_entidades` e `user_programas` do usuario logado
+- As formacoes retornadas devem pertencer as entidades (escolas) vinculadas ao usuario
+- Filtro de Programa mostra apenas os programas vinculados
+- Filtro de Formador pode ser restringido ou nao (manter aberto dentro do escopo de entidades)
+
+### Bloqueio N5
+- Se o role for `n5_formador`, redirecionar para a rota padrao ou exibir mensagem de acesso negado
+
+### Implementacao
+
+No `useEffect` de carga inicial:
+1. Buscar `user_programas` e `user_entidades` do usuario logado (se nao for admin)
+2. Filtrar as `programacoes` retornadas com base nos programas e/ou escola_ids do usuario
+3. Restringir opcoes do filtro de Programa aos programas vinculados
+
+## Detalhes tecnicos
+
+| Arquivo | Alteracao |
 |---|---|
-| Arquivo | `src/pages/admin/AdminDashboard.tsx` |
-| Linhas afetadas | ~390-406 (bloco `acoesPorTipo`) |
-| Import adicional | `ACAO_TIPOS`, `ACAO_TYPE_INFO` de `@/config/acaoPermissions` |
-| Migração | Não necessária |
+| `src/components/layout/AppLayout.tsx` | Adicionar `/pontos-observados` aos arrays de `manager` e `operational` |
+| `src/components/layout/Sidebar.tsx` | Adicionar item ao `operationalMenuItems` e filtrar N5 dinamicamente em `SidebarContent` |
+| `src/pages/admin/PontosObservadosPage.tsx` | Adicionar logica de escopo: buscar `user_programas`/`user_entidades`, filtrar formacoes, restringir filtro de Programa. Bloquear N5. |
 
-Os filtros de programa e usuário já estão aplicados via `filteredProgramacoes`, que filtra por `programaFilter`, `escolaFilter` e `componenteFilter`. Nenhuma mudança nos filtros é necessária.
+### Logica de escopo (pseudocodigo)
+
+```text
+if admin:
+  load all
+elif manager (N2/N3):
+  userPrograms = fetch user_programas where user_id = profile.id
+  filter programacoes where programa intersects userPrograms
+elif operational (N4.1/N4.2):
+  userPrograms = fetch user_programas where user_id = profile.id
+  userEntidades = fetch user_entidades where user_id = profile.id
+  filter programacoes where escola_id in userEntidades AND programa intersects userPrograms
+elif n5_formador:
+  redirect / block access
+```
+
+Nenhuma migracao de banco necessaria.
 
