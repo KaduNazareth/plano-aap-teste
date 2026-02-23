@@ -1,48 +1,54 @@
 
-# Habilitar importação em lote de Atores Educacionais para N2 a N4
+# Correção: Botões de importação não aparecem na simulação de perfil
 
-## Contexto
+## Diagnóstico
 
-Atualmente, o botão "Importar" na página de Atores Educacionais (`/professores`) aparece apenas para **Admin (N1) e Gestor (N2)**, controlado pela condição `isAdminOrGestor`.
-
-O pedido é estender essa permissão para incluir **N3 (Coordenador do Programa)** e **N4 (CPed e GPI)**.
-
-## Solução
-
-Alterar **apenas** `src/pages/admin/ProfessoresPage.tsx`:
-
-### 1. Criar variável de permissão para importação
-
-Usar o `useAuth()` para verificar se o usuário é N1-N4:
+O `canBatchImport` foi implementado verificando `profile?.role`:
 
 ```typescript
 const canBatchImport = isAdminOrGestor || 
-  userProfile?.role === 'n3_coordenador_programa' || 
-  userProfile?.role === 'n4_1_cped' || 
-  userProfile?.role === 'n4_2_gpi';
+  profile?.role === 'n3_coordenador_programa' || 
+  profile?.role === 'n4_1_cped' || 
+  profile?.role === 'n4_2_gpi';
 ```
 
-### 2. Substituir a condição `isAdminOrGestor` no botão de importação
+O problema é que `profile?.role` sempre retorna o papel **real** do usuário (admin), ignorando a simulação. Já `isAdminOrGestor` usa o `effectiveRole` (que respeita a simulação), mas quando simulando N4, `isAdminOrGestor` é `false` e `profile?.role` continua sendo `admin` — nenhuma condição dos N3/N4 é satisfeita.
 
-Na linha 984:
-- **Antes**: `{isAdminOrGestor && (`
-- **Depois**: `{canBatchImport && (`
+A solução correta é usar os helpers que já respeitam a simulação: `isAAP` (que inclui N4) e `isManager` (que inclui N3).
 
-### 3. Substituir a condição `isAdminOrGestor` no botão de exportação
+## Solução
 
-Na linha 1041:
-- **Antes**: `{isAdminOrGestor && (`
-- **Depois**: `{canBatchImport && (`
+Alterar **uma linha** em `src/pages/admin/ProfessoresPage.tsx`:
 
-## Segurança
+### Antes (linha ~114)
 
-As policies RLS da tabela `professores` ja permitem INSERT para perfis operacionais (N4/N5) vinculados a entidades e para managers (N2/N3) vinculados a programas. Portanto, **nenhuma alteracao de banco é necessária** — a permissão de escrita ja existe no backend.
+```typescript
+const canBatchImport = isAdminOrGestor || 
+  profile?.role === 'n3_coordenador_programa' || 
+  profile?.role === 'n4_1_cped' || 
+  profile?.role === 'n4_2_gpi';
+```
+
+### Depois
+
+```typescript
+const canBatchImport = isAdminOrGestor || isManager || isAAP;
+```
+
+Isso funciona porque:
+- `isAdminOrGestor` cobre N1 e N2
+- `isManager` cobre N3 (coordenador de programa)
+- `isAAP` cobre N4 (CPed, GPI) e N5 (formador)
+
+Todos esses helpers usam `effectiveRole`, respeitando corretamente a simulação de perfil.
+
+**Nota:** Isso também habilita N5 (Formador) para importação em lote, o que é consistente com a permissão de gerenciamento (`canManageProfessores = isAdminOrGestor || isAAP`). Se quiser restringir apenas a N4, usamos uma verificação mais específica com `effectiveRole` em vez de `profile?.role`.
 
 ## Resumo
 
 | Item | Detalhe |
 |---|---|
-| Arquivo alterado | `src/pages/admin/ProfessoresPage.tsx` |
-| Alteração | Criar `canBatchImport` e usar nos botões de importar/exportar |
+| Causa raiz | `profile?.role` não reflete a simulação de perfil; apenas `effectiveRole` e os helpers derivados o fazem |
+| Arquivo | `src/pages/admin/ProfessoresPage.tsx` |
+| Alteração | Substituir checagens de `profile?.role` por helpers `isManager` e `isAAP` |
 | Migração | Não necessária |
-| Impacto | N3 e N4 passam a ver e usar os botões de importação/exportação em lote |
