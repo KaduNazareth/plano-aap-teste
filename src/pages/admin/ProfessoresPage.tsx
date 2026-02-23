@@ -110,7 +110,11 @@ const anoSerieOptions: Record<string, string[]> = {
 };
 
 export default function ProfessoresPage() {
-  const { isAdminOrGestor, isAAP, user } = useAuth();
+  const { isAdminOrGestor, isAAP, user, profile } = useAuth();
+  const canBatchImport = isAdminOrGestor || 
+    profile?.role === 'n3_coordenador_programa' || 
+    profile?.role === 'n4_1_cped' || 
+    profile?.role === 'n4_2_gpi';
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [escolas, setEscolas] = useState<Escola[]>([]);
   const [aapEscolasIds, setAapEscolasIds] = useState<string[]>([]);
@@ -981,7 +985,7 @@ export default function ProfessoresPage() {
         
         {canManageProfessores && (
           <div className="flex flex-wrap gap-3">
-            {isAdminOrGestor && (
+            {canBatchImport && (
               <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
                 <DialogTrigger asChild>
                   <button className="btn-outline flex items-center gap-2">
@@ -1038,7 +1042,7 @@ export default function ProfessoresPage() {
               </Dialog>
             )}
 
-            {isAdminOrGestor && (
+            {canBatchImport && (
               <button onClick={handleExportData} className="btn-outline flex items-center gap-2">
                 <Download size={18} />
                 Exportar
