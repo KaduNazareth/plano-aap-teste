@@ -1,84 +1,48 @@
 
-# Correção: "Gerenciar Presenças" na RegistrosPage não exibe atores administrativos
+# Habilitar importação em lote de Atores Educacionais para N2 a N4
 
-## Diagnóstico
+## Contexto
 
-O modal "Gerenciar Presenças" é aberto via `handleOpenManage` que chama `getAvailableProfessors` (linhas 428–453 de `RegistrosPage.tsx`).
+Atualmente, o botão "Importar" na página de Atores Educacionais (`/professores`) aparece apenas para **Admin (N1) e Gestor (N2)**, controlado pela condição `isAdminOrGestor`.
 
-O problema está na função `getAvailableProfessors`, bloco de formação (linhas 431–443):
-
-```typescript
-return professores.filter(p => {
-  if (p.escola_id !== registro.escola_id) return false;
-  if (p.componente !== registro.componente) return false;  // ← PROBLEMA AQUI
-  if (registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
-  if (registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
-  // filtro por cargo já existe (correto)
-  const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
-  const tipoAtor = programacao?.tipo_ator_presenca;
-  if (tipoAtor && tipoAtor !== 'todos') {
-    if (p.cargo !== tipoAtor) return false;
-  }
-  return true;
-});
-```
-
-A linha `if (p.componente !== registro.componente) return false` **sempre filtra por componente**, antes mesmo de verificar o `tipo_ator_presenca`. Coordenadores e diretores têm `componente = 'nao_se_aplica'`, então são eliminados imediatamente — o filtro por cargo nunca chega a ser avaliado para eles.
-
-A mesma lógica condicional aplicada em `ListaPresencaPage.tsx` precisa ser aplicada aqui.
+O pedido é estender essa permissão para incluir **N3 (Coordenador do Programa)** e **N4 (CPed e GPI)**.
 
 ## Solução
 
-Alterar **apenas** a função `getAvailableProfessors` em `src/pages/admin/RegistrosPage.tsx` (linhas 428–453):
+Alterar **apenas** `src/pages/admin/ProfessoresPage.tsx`:
 
-### Antes
+### 1. Criar variável de permissão para importação
 
-```typescript
-if (registro.tipo === 'formacao') {
-  return professores.filter(p => {
-    if (p.escola_id !== registro.escola_id) return false;
-    if (p.componente !== registro.componente) return false;   // ← sem condição
-    if (registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
-    if (registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
-    const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
-    const tipoAtor = programacao?.tipo_ator_presenca;
-    if (tipoAtor && tipoAtor !== 'todos') {
-      if (p.cargo !== tipoAtor) return false;
-    }
-    return true;
-  });
-}
-```
-
-### Depois
+Usar o `useAuth()` para verificar se o usuário é N1-N4:
 
 ```typescript
-if (registro.tipo === 'formacao') {
-  const programacao = programacoes.find(prog => prog.id === registro.programacao_id);
-  const tipoAtor = programacao?.tipo_ator_presenca;
-  const isCargoAdministrativo = tipoAtor && tipoAtor !== 'todos' && tipoAtor !== 'professor';
-
-  return professores.filter(p => {
-    if (p.escola_id !== registro.escola_id) return false;
-    // Filtro por componente: apenas se o alvo for professor (admins têm 'nao_se_aplica')
-    if (!isCargoAdministrativo && p.componente !== registro.componente) return false;
-    // Filtro por segmento: apenas se o alvo for professor
-    if (!isCargoAdministrativo && registro.segmento !== 'todos' && p.segmento !== registro.segmento) return false;
-    // Filtro por ano_serie: apenas se o alvo for professor
-    if (!isCargoAdministrativo && registro.ano_serie !== 'todos' && p.ano_serie !== registro.ano_serie) return false;
-    // Filtro por cargo
-    if (tipoAtor && tipoAtor !== 'todos' && p.cargo !== tipoAtor) return false;
-    return true;
-  });
-}
+const canBatchImport = isAdminOrGestor || 
+  userProfile?.role === 'n3_coordenador_programa' || 
+  userProfile?.role === 'n4_1_cped' || 
+  userProfile?.role === 'n4_2_gpi';
 ```
+
+### 2. Substituir a condição `isAdminOrGestor` no botão de importação
+
+Na linha 984:
+- **Antes**: `{isAdminOrGestor && (`
+- **Depois**: `{canBatchImport && (`
+
+### 3. Substituir a condição `isAdminOrGestor` no botão de exportação
+
+Na linha 1041:
+- **Antes**: `{isAdminOrGestor && (`
+- **Depois**: `{canBatchImport && (`
+
+## Segurança
+
+As policies RLS da tabela `professores` ja permitem INSERT para perfis operacionais (N4/N5) vinculados a entidades e para managers (N2/N3) vinculados a programas. Portanto, **nenhuma alteracao de banco é necessária** — a permissão de escrita ja existe no backend.
 
 ## Resumo
 
 | Item | Detalhe |
 |---|---|
-| Causa raiz | Filtro por `componente` aplicado incondicionalmente, eliminando atores administrativos (coordenador, diretor, vice-diretor) antes de verificar o cargo |
-| Solução | Tornar os filtros de `componente`, `segmento` e `ano_serie` condicionais ao tipo de ator — igual ao que foi feito em `ListaPresencaPage.tsx` |
-| Arquivo alterado | `src/pages/admin/RegistrosPage.tsx` somente |
-| Linhas afetadas | 428–453 (função `getAvailableProfessors`) |
-| Migração de banco | Não necessária |
+| Arquivo alterado | `src/pages/admin/ProfessoresPage.tsx` |
+| Alteração | Criar `canBatchImport` e usar nos botões de importar/exportar |
+| Migração | Não necessária |
+| Impacto | N3 e N4 passam a ver e usar os botões de importação/exportação em lote |
