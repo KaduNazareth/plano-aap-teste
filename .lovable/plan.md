@@ -1,110 +1,75 @@
 
-
-# Filtros adicionais na Programacao: Entidade, Formador, Consultor, Gestor de Parceria
+# Adicionar campos "Projeto (Notion)" e "Local" ao formulário de Formação
 
 ## Resumo
 
-Adicionar 4 novos filtros na pagina de Programacao (`/programacao`), com visibilidade condicionada ao nivel de permissao do usuario logado. Os filtros atuais (Programa e Tipo) serao mantidos.
+Adicionar duas caixas de texto não obrigatórias -- **Projeto (Notion)** e **Local** -- ao formulário de criação de programação, visíveis apenas quando o tipo selecionado for `formacao`.
 
-## Novos filtros
+## 1. Migração de banco de dados
 
-| Filtro | Descricao | Quem ve |
-|---|---|---|
-| Entidade | Filtra por escola/entidade vinculada | N1 (todas), N2/N3 (entidades dos seus programas), N4.1/N4.2/N5 (suas entidades vinculadas) |
-| Formador (N5) | Filtra acoes por responsavel com role `n5_formador` | N1, N2, N3, N4.1, N4.2 |
-| Consultor (N4.1) | Filtra acoes por responsavel com role `n4_1_cped` | N1, N2, N3 |
-| Gestor de Parceria (N4.2) | Filtra acoes por responsavel com role `n4_2_gpi` | N1, N2, N3 |
+Adicionar duas colunas na tabela `programacoes`:
 
-**Regra de visibilidade**: cada filtro aparece apenas para usuarios de nivel hierarquico superior ao do perfil filtrado. Ex: o filtro "Formador" nao aparece para o proprio N5, pois ele ja ve apenas suas acoes. O filtro "Consultor" nao aparece para N4.1/N4.2/N5, pois eles nao tem visao desses pares.
-
-## Alteracoes
-
-### Arquivo: `src/pages/admin/ProgramacaoPage.tsx`
-
-#### 1. Novos estados de filtro (junto aos existentes ~linhas 125-126)
-
-```typescript
-const [entidadeFilter, setEntidadeFilter] = useState<string>('todos');
-const [formadorFilter, setFormadorFilter] = useState<string>('todos');
-const [consultorFilter, setConsultorFilter] = useState<string>('todos');
-const [gpiFilter, setGpiFilter] = useState<string>('todos');
+```sql
+ALTER TABLE public.programacoes
+  ADD COLUMN projeto_notion text DEFAULT NULL,
+  ADD COLUMN local text DEFAULT NULL;
 ```
 
-#### 2. Listas de opcoes para os novos filtros
+Nenhuma política RLS adicional é necessária -- as colunas herdam as políticas já existentes na tabela.
 
-Derivar dos dados ja carregados em `aaps` e `escolas`:
+## 2. Alterações no formulário (ProgramacaoPage.tsx)
 
-- **Entidades**: usar o array `escolas` ja carregado (ja filtrado por programa/entidade do usuario)
-- **Formadores**: `aaps.filter(u => u.roles.includes('n5_formador'))`
-- **Consultores**: `aaps.filter(u => u.roles.includes('n4_1_cped'))`
-- **GPIs**: `aaps.filter(u => u.roles.includes('n4_2_gpi'))`
+### 2.1 Estado do formulário (~linha 206)
 
-Para N2/N3, as listas de usuarios ja sao filtradas por programa na `fetchData`. Para N4/N5, a lista de formadores ja vem filtrada por entidade. Nao e necessario buscar dados adicionais.
-
-#### 3. Aplicar filtros no `filteredProgramacoes` (useMemo ~linha 530)
-
-Adicionar condicoes:
+Adicionar `projetoNotion` e `local` ao tipo e estado inicial de `formData`:
 
 ```typescript
-// Filtro por entidade
-if (entidadeFilter !== 'todos' && p.escola_id !== entidadeFilter) return false;
-
-// Filtro por formador (N5)
-if (formadorFilter !== 'todos' && p.aap_id !== formadorFilter) return false;
-
-// Filtro por consultor (N4.1)
-if (consultorFilter !== 'todos' && p.aap_id !== consultorFilter) return false;
-
-// Filtro por GPI (N4.2)
-if (gpiFilter !== 'todos' && p.aap_id !== gpiFilter) return false;
+projetoNotion: string;  // novo
+local: string;          // novo
 ```
 
-#### 4. Visibilidade dos filtros no JSX (~linha 2037)
+Valor inicial: `''` para ambos.
 
-Usar `profile?.role` e helpers de roleConfig para determinar visibilidade:
+### 2.2 Campos no JSX do dialog (~após linha 2028, depois do "Tipo de Ator Participante")
+
+Renderizar condicionalmente quando `formData.tipo === 'formacao'`:
 
 ```text
-const userLevel = getRoleLevel(profile?.role);
-
-Entidade:      visivel para todos (N1-N5+) — ja escoped pelos dados carregados
-Formador:      visivel se userLevel <= 4 (N1, N2, N3, N4.1, N4.2)
-Consultor:     visivel se userLevel <= 3 (N1, N2, N3)
-Gestor Parceria: visivel se userLevel <= 3 (N1, N2, N3)
+{formData.tipo === 'formacao' && (
+  <>
+    <div className="col-span-2">
+      <label>Projeto (Notion)</label>
+      <input type="text" value={formData.projetoNotion} ... placeholder="Nome do projeto no Notion" />
+    </div>
+    <div className="col-span-2">
+      <label>Local</label>
+      <input type="text" value={formData.local} ... placeholder="Local da formação" />
+    </div>
+  </>
+)}
 ```
 
-#### 5. Renderizacao dos Selects
+Ambos os campos **não** terão o atributo `required`.
 
-Adicionar apos o Select de "Tipo" existente:
+### 2.3 Dados de inserção (~linha 607)
 
-- Select "Entidade" com `escolas` como opcoes (nome + codesc)
-- Select "Formador" com usuarios N5 filtrados
-- Select "Consultor" com usuarios N4.1 filtrados
-- Select "Gestor de Parceria" com usuarios N4.2 filtrados
-
-#### 6. Resetar filtros dependentes
-
-Quando `programaFilter` mudar, resetar `entidadeFilter`, `formadorFilter`, `consultorFilter` e `gpiFilter` para `'todos'` — pois as opcoes podem mudar.
-
-Adicionar ao `useEffect` existente de limpeza (~linha 401):
+Incluir os novos campos no objeto `insertData`:
 
 ```typescript
-useEffect(() => {
-  setSelectedProgramacaoIds(new Set());
-  setEntidadeFilter('todos');
-  setFormadorFilter('todos');
-  setConsultorFilter('todos');
-  setGpiFilter('todos');
-}, [programaFilter, tipoFilter, currentMonth]);
+projeto_notion: formData.tipo === 'formacao' ? (formData.projetoNotion || null) : null,
+local: formData.tipo === 'formacao' ? (formData.local || null) : null,
 ```
 
-## Detalhes tecnicos
+### 2.4 Reset do formulário (~linha 650)
+
+Adicionar `projetoNotion: ''` e `local: ''` ao objeto de reset após submit bem-sucedido.
+
+## Detalhes técnicos
 
 | Item | Detalhe |
 |---|---|
 | Arquivo | `src/pages/admin/ProgramacaoPage.tsx` |
-| Import adicional | `getRoleLevel` de `@/config/roleConfig` |
-| Migracao | Nenhuma |
-| Novos dados | Nenhum — reutiliza `escolas` e `aaps` ja carregados |
-
-Os filtros de Formador, Consultor e GPI filtram pelo campo `aap_id` da programacao, que corresponde ao responsavel pela acao. A filtragem de entidade usa `escola_id`.
-
+| Migração | 1 migration: ADD COLUMN `projeto_notion` text, ADD COLUMN `local` text |
+| Campos condicionais | Visíveis apenas para `tipo === 'formacao'` |
+| Obrigatoriedade | Ambos opcionais |
+| RLS | Nenhuma alteração necessária |
