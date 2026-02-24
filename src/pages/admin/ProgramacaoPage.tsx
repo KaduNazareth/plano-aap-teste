@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { segmentoLabels, componenteLabels, anoSerieOptions, tipoAcaoLabels, cargoLabels } from '@/data/mockData';
 import { StatusAcao, Segmento, ComponenteCurricular } from '@/types';
 import { getCreatableAcoes, canUserCreateAcao, ACAO_TYPE_INFO, AcaoTipo, getAcaoLabel, normalizeAcaoTipo, ACAO_FORM_CONFIG, ROLE_LABELS } from '@/config/acaoPermissions';
+import { getRoleLevel } from '@/config/roleConfig';
 import { InstrumentForm } from '@/components/instruments/InstrumentForm';
 import { INSTRUMENT_FORM_TYPES, useInstrumentFields } from '@/hooks/useInstrumentFields';
 import { useFormFieldConfig } from '@/hooks/useFormFieldConfig';
@@ -124,6 +125,10 @@ export default function ProgramacaoPage() {
   // Filter states
   const [programaFilter, setProgramaFilter] = useState<ProgramaType | 'todos'>('todos');
   const [tipoFilter, setTipoFilter] = useState<string>('todos');
+  const [entidadeFilter, setEntidadeFilter] = useState<string>('todos');
+  const [formadorFilter, setFormadorFilter] = useState<string>('todos');
+  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
+  const [gpiFilter, setGpiFilter] = useState<string>('todos');
   
   // Estados para dados do banco
   const [escolas, setEscolas] = useState<Escola[]>([]);
@@ -398,9 +403,13 @@ export default function ProgramacaoPage() {
     fetchData();
   }, [isGestor, isAAP, user]);
 
-  // Limpar seleção quando filtros mudam
+  // Limpar seleção e filtros dependentes quando filtros principais mudam
   useEffect(() => {
     setSelectedProgramacaoIds(new Set());
+    setEntidadeFilter('todos');
+    setFormadorFilter('todos');
+    setConsultorFilter('todos');
+    setGpiFilter('todos');
   }, [programaFilter, tipoFilter, currentMonth]);
 
   // Fetch eligible actors when acompanhamento checkbox is toggled
@@ -546,9 +555,13 @@ export default function ProgramacaoPage() {
         if (!p.programa || !p.programa.includes(programaFilter)) return false;
       }
       if (tipoFilter !== 'todos' && p.tipo !== tipoFilter) return false;
+      if (entidadeFilter !== 'todos' && p.escola_id !== entidadeFilter) return false;
+      if (formadorFilter !== 'todos' && p.aap_id !== formadorFilter) return false;
+      if (consultorFilter !== 'todos' && p.aap_id !== consultorFilter) return false;
+      if (gpiFilter !== 'todos' && p.aap_id !== gpiFilter) return false;
       return true;
     });
-  }, [programacoes, programaFilter, tipoFilter, isAAP, isGestor, aapProgramas, gestorProgramas]);
+  }, [programacoes, programaFilter, tipoFilter, entidadeFilter, formadorFilter, consultorFilter, gpiFilter, isAAP, isGestor, aapProgramas, gestorProgramas]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -2096,6 +2109,66 @@ export default function ProgramacaoPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* Filtro Entidade - visível para todos os níveis */}
+          <Select value={entidadeFilter} onValueChange={setEntidadeFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Entidade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas as Entidades</SelectItem>
+              {escolas.map(e => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.codesc ? `${e.codesc} - ${e.nome}` : e.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Filtro Formador (N5) - visível para N1 a N4.2 (level <= 4) */}
+          {getRoleLevel(profile?.role ?? null) <= 4 && (
+            <Select value={formadorFilter} onValueChange={setFormadorFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Formador" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Formadores</SelectItem>
+                {aaps.filter(u => u.roles.includes('n5_formador')).map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Filtro Consultor (N4.1) - visível para N1, N2, N3 (level <= 3) */}
+          {getRoleLevel(profile?.role ?? null) <= 3 && (
+            <Select value={consultorFilter} onValueChange={setConsultorFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Consultor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Consultores</SelectItem>
+                {aaps.filter(u => u.roles.includes('n4_1_cped')).map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Filtro Gestor de Parceria (N4.2) - visível para N1, N2, N3 (level <= 3) */}
+          {getRoleLevel(profile?.role ?? null) <= 3 && (
+            <Select value={gpiFilter} onValueChange={setGpiFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Gestor de Parceria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os GPIs</SelectItem>
+                {aaps.filter(u => u.roles.includes('n4_2_gpi')).map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
