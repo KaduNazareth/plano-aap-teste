@@ -1,78 +1,110 @@
 
 
-# Pontos Observados - Acesso N1 a N4.2 com filtros por escopo
+# Filtros adicionais na Programacao: Entidade, Formador, Consultor, Gestor de Parceria
 
 ## Resumo
 
-Tornar a pagina `/pontos-observados` acessivel para os niveis N1 ate N4.2 (excluindo N5 em diante), aplicando filtros de programa, entidade e acao de acordo com o escopo de cada perfil.
+Adicionar 4 novos filtros na pagina de Programacao (`/programacao`), com visibilidade condicionada ao nivel de permissao do usuario logado. Os filtros atuais (Programa e Tipo) serao mantidos.
 
-## 1. Adicionar rota ao ALLOWED_ROUTES (AppLayout.tsx)
+## Novos filtros
 
-Adicionar `/pontos-observados` nas listas de rotas permitidas para os tiers `manager` e `operational`:
+| Filtro | Descricao | Quem ve |
+|---|---|---|
+| Entidade | Filtra por escola/entidade vinculada | N1 (todas), N2/N3 (entidades dos seus programas), N4.1/N4.2/N5 (suas entidades vinculadas) |
+| Formador (N5) | Filtra acoes por responsavel com role `n5_formador` | N1, N2, N3, N4.1, N4.2 |
+| Consultor (N4.1) | Filtra acoes por responsavel com role `n4_1_cped` | N1, N2, N3 |
+| Gestor de Parceria (N4.2) | Filtra acoes por responsavel com role `n4_2_gpi` | N1, N2, N3 |
 
-- **manager** (N2, N3): adicionar `/pontos-observados`
-- **operational** (N4.1, N4.2, N5): adicionar `/pontos-observados` — o controle fino (excluir N5) sera feito na pagina e no menu
+**Regra de visibilidade**: cada filtro aparece apenas para usuarios de nivel hierarquico superior ao do perfil filtrado. Ex: o filtro "Formador" nao aparece para o proprio N5, pois ele ja ve apenas suas acoes. O filtro "Consultor" nao aparece para N4.1/N4.2/N5, pois eles nao tem visao desses pares.
 
-## 2. Adicionar ao menu do operational com filtro de role (Sidebar.tsx)
+## Alteracoes
 
-O `operationalMenuItems` e estatico e atende N4.1, N4.2 e N5. Para exibir "Pontos Observados" apenas para N4.1 e N4.2:
+### Arquivo: `src/pages/admin/ProgramacaoPage.tsx`
 
-- Alterar `getMenuItems` para receber o role do usuario
-- Quando tier for `operational`, filtrar o item "Pontos Observados" se o role for `n5_formador`
+#### 1. Novos estados de filtro (junto aos existentes ~linhas 125-126)
 
-Alternativa mais simples: adicionar o item ao array `operationalMenuItems` e filtrar dinamicamente em `SidebarContent` com base no `profile.role`, removendo o item para N5.
+```typescript
+const [entidadeFilter, setEntidadeFilter] = useState<string>('todos');
+const [formadorFilter, setFormadorFilter] = useState<string>('todos');
+const [consultorFilter, setConsultorFilter] = useState<string>('todos');
+const [gpiFilter, setGpiFilter] = useState<string>('todos');
+```
 
-## 3. Aplicar escopo de dados na PontosObservadosPage.tsx
+#### 2. Listas de opcoes para os novos filtros
 
-Atualmente a pagina carrega **todas** as formacoes realizadas sem restricao. Precisa aplicar:
+Derivar dos dados ja carregados em `aaps` e `escolas`:
 
-### N1 (admin)
-- Sem restricao — ve tudo
+- **Entidades**: usar o array `escolas` ja carregado (ja filtrado por programa/entidade do usuario)
+- **Formadores**: `aaps.filter(u => u.roles.includes('n5_formador'))`
+- **Consultores**: `aaps.filter(u => u.roles.includes('n4_1_cped'))`
+- **GPIs**: `aaps.filter(u => u.roles.includes('n4_2_gpi'))`
 
-### N2 / N3 (manager)
-- Filtrar por `user_programas` do usuario logado
-- As formacoes retornadas devem ter `programa` intersectando com os programas do usuario
-- O filtro de Programa no UI deve mostrar apenas os programas vinculados
+Para N2/N3, as listas de usuarios ja sao filtradas por programa na `fetchData`. Para N4/N5, a lista de formadores ja vem filtrada por entidade. Nao e necessario buscar dados adicionais.
 
-### N4.1 / N4.2 (operational)
-- Filtrar por `user_entidades` e `user_programas` do usuario logado
-- As formacoes retornadas devem pertencer as entidades (escolas) vinculadas ao usuario
-- Filtro de Programa mostra apenas os programas vinculados
-- Filtro de Formador pode ser restringido ou nao (manter aberto dentro do escopo de entidades)
+#### 3. Aplicar filtros no `filteredProgramacoes` (useMemo ~linha 530)
 
-### Bloqueio N5
-- Se o role for `n5_formador`, redirecionar para a rota padrao ou exibir mensagem de acesso negado
+Adicionar condicoes:
 
-### Implementacao
+```typescript
+// Filtro por entidade
+if (entidadeFilter !== 'todos' && p.escola_id !== entidadeFilter) return false;
 
-No `useEffect` de carga inicial:
-1. Buscar `user_programas` e `user_entidades` do usuario logado (se nao for admin)
-2. Filtrar as `programacoes` retornadas com base nos programas e/ou escola_ids do usuario
-3. Restringir opcoes do filtro de Programa aos programas vinculados
+// Filtro por formador (N5)
+if (formadorFilter !== 'todos' && p.aap_id !== formadorFilter) return false;
+
+// Filtro por consultor (N4.1)
+if (consultorFilter !== 'todos' && p.aap_id !== consultorFilter) return false;
+
+// Filtro por GPI (N4.2)
+if (gpiFilter !== 'todos' && p.aap_id !== gpiFilter) return false;
+```
+
+#### 4. Visibilidade dos filtros no JSX (~linha 2037)
+
+Usar `profile?.role` e helpers de roleConfig para determinar visibilidade:
+
+```text
+const userLevel = getRoleLevel(profile?.role);
+
+Entidade:      visivel para todos (N1-N5+) — ja escoped pelos dados carregados
+Formador:      visivel se userLevel <= 4 (N1, N2, N3, N4.1, N4.2)
+Consultor:     visivel se userLevel <= 3 (N1, N2, N3)
+Gestor Parceria: visivel se userLevel <= 3 (N1, N2, N3)
+```
+
+#### 5. Renderizacao dos Selects
+
+Adicionar apos o Select de "Tipo" existente:
+
+- Select "Entidade" com `escolas` como opcoes (nome + codesc)
+- Select "Formador" com usuarios N5 filtrados
+- Select "Consultor" com usuarios N4.1 filtrados
+- Select "Gestor de Parceria" com usuarios N4.2 filtrados
+
+#### 6. Resetar filtros dependentes
+
+Quando `programaFilter` mudar, resetar `entidadeFilter`, `formadorFilter`, `consultorFilter` e `gpiFilter` para `'todos'` — pois as opcoes podem mudar.
+
+Adicionar ao `useEffect` existente de limpeza (~linha 401):
+
+```typescript
+useEffect(() => {
+  setSelectedProgramacaoIds(new Set());
+  setEntidadeFilter('todos');
+  setFormadorFilter('todos');
+  setConsultorFilter('todos');
+  setGpiFilter('todos');
+}, [programaFilter, tipoFilter, currentMonth]);
+```
 
 ## Detalhes tecnicos
 
-| Arquivo | Alteracao |
+| Item | Detalhe |
 |---|---|
-| `src/components/layout/AppLayout.tsx` | Adicionar `/pontos-observados` aos arrays de `manager` e `operational` |
-| `src/components/layout/Sidebar.tsx` | Adicionar item ao `operationalMenuItems` e filtrar N5 dinamicamente em `SidebarContent` |
-| `src/pages/admin/PontosObservadosPage.tsx` | Adicionar logica de escopo: buscar `user_programas`/`user_entidades`, filtrar formacoes, restringir filtro de Programa. Bloquear N5. |
+| Arquivo | `src/pages/admin/ProgramacaoPage.tsx` |
+| Import adicional | `getRoleLevel` de `@/config/roleConfig` |
+| Migracao | Nenhuma |
+| Novos dados | Nenhum — reutiliza `escolas` e `aaps` ja carregados |
 
-### Logica de escopo (pseudocodigo)
-
-```text
-if admin:
-  load all
-elif manager (N2/N3):
-  userPrograms = fetch user_programas where user_id = profile.id
-  filter programacoes where programa intersects userPrograms
-elif operational (N4.1/N4.2):
-  userPrograms = fetch user_programas where user_id = profile.id
-  userEntidades = fetch user_entidades where user_id = profile.id
-  filter programacoes where escola_id in userEntidades AND programa intersects userPrograms
-elif n5_formador:
-  redirect / block access
-```
-
-Nenhuma migracao de banco necessaria.
+Os filtros de Formador, Consultor e GPI filtram pelo campo `aap_id` da programacao, que corresponde ao responsavel pela acao. A filtragem de entidade usa `escola_id`.
 
