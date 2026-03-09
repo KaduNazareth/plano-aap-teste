@@ -617,7 +617,7 @@ export default function UsuariosPage() {
         <p className="text-xs text-muted-foreground mt-0.5">Selecione as entidades dos programas</p>
         <div className="max-h-40 overflow-y-auto space-y-1 mt-2 border rounded-md p-2">
           {entidadesFiltradas.map(escola => (
-            <label key={escola.id} className="flex items-center gap-2 cursor-pointer">
+            <label key={escola.id} className="flex items-start gap-2 cursor-pointer min-w-0">
               <input
                 type="checkbox"
                 checked={formData.entidadeIds.includes(escola.id)}
@@ -628,9 +628,9 @@ export default function UsuariosPage() {
                     setFormData({ ...formData, entidadeIds: formData.entidadeIds.filter(id => id !== escola.id) });
                   }
                 }}
-                className="w-4 h-4 rounded border-border"
+                className="w-4 h-4 rounded border-border mt-0.5 shrink-0"
               />
-              <span className="text-sm truncate">{escola.nome}</span>
+              <span className="text-sm break-words min-w-0">{escola.nome}</span>
             </label>
           ))}
           {formData.programas.length === 0 && <p className="text-xs text-muted-foreground">Selecione um programa primeiro</p>}
