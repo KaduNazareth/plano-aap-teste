@@ -833,7 +833,7 @@ export default function UsuariosPage() {
 
       {/* Role Dialog */}
       <Dialog open={dialogMode === 'role'} onOpenChange={() => closeDialog()}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" />
