@@ -86,6 +86,7 @@ const segmentoLabels: Record<string, string> = {
   anos_iniciais: 'Anos Iniciais',
   anos_finais: 'Anos Finais',
   ensino_medio: 'Ensino Médio',
+  todos: 'Todos os Segmentos',
 };
 
 const componenteLabels: Record<string, string> = {
