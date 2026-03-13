@@ -492,6 +492,7 @@ export default function ProfessoresPage() {
     'nao se aplica': 'nao_se_aplica',
     'não se aplica': 'nao_se_aplica',
     'n/a': 'nao_se_aplica',
+    'todos': 'todos',
   };
 
   const componenteMap: Record<string, string> = {
