@@ -1,75 +1,45 @@
 
-# Adicionar campos "Projeto (Notion)" e "Local" ao formulário de Formação
 
-## Resumo
+# Atualizar opções de Material Didático na Observação de Aula
 
-Adicionar duas caixas de texto não obrigatórias -- **Projeto (Notion)** e **Local** -- ao formulário de criação de programação, visíveis apenas quando o tipo selecionado for `formacao`.
+## Alterações
 
-## 1. Migração de banco de dados
+### 1. Atualizar opções no campo `material_didatico` (tabela `instrument_fields`)
 
-Adicionar duas colunas na tabela `programacoes`:
+Migração SQL para atualizar o `metadata` do campo:
 
 ```sql
-ALTER TABLE public.programacoes
-  ADD COLUMN projeto_notion text DEFAULT NULL,
-  ADD COLUMN local text DEFAULT NULL;
+UPDATE instrument_fields
+SET metadata = '{"options": ["Orientação de Estudos", "Professor Tutor", "MEN10", "VOAR", "Escopo Sequência", "Alfabetização MHB"]}'::jsonb
+WHERE field_key = 'material_didatico' AND form_type = 'observacao_aula';
 ```
 
-Nenhuma política RLS adicional é necessária -- as colunas herdam as políticas já existentes na tabela.
+Mudanças:
+- "São Paulo em Ação" → removido (substituído por "Orientação de Estudos" que já existe)
+- "Orientação de Estudos" → mantido
+- "Tutoria" → "Professor Tutor"
+- Novos: "MEN10", "VOAR", "Escopo Sequência", "Alfabetização MHB"
 
-## 2. Alterações no formulário (ProgramacaoPage.tsx)
+### 2. Atualizar registros existentes (tabela `instrument_responses`)
 
-### 2.1 Estado do formulário (~linha 206)
+```sql
+-- "São Paulo em Ação" → "Orientação de Estudos"
+UPDATE instrument_responses
+SET responses = jsonb_set(responses, '{material_didatico}', '"Orientação de Estudos"')
+WHERE form_type = 'observacao_aula'
+  AND responses->>'material_didatico' = 'São Paulo em Ação';
 
-Adicionar `projetoNotion` e `local` ao tipo e estado inicial de `formData`:
-
-```typescript
-projetoNotion: string;  // novo
-local: string;          // novo
+-- "Tutoria" → "Professor Tutor"
+UPDATE instrument_responses
+SET responses = jsonb_set(responses, '{material_didatico}', '"Professor Tutor"')
+WHERE form_type = 'observacao_aula'
+  AND responses->>'material_didatico' = 'Tutoria';
 ```
-
-Valor inicial: `''` para ambos.
-
-### 2.2 Campos no JSX do dialog (~após linha 2028, depois do "Tipo de Ator Participante")
-
-Renderizar condicionalmente quando `formData.tipo === 'formacao'`:
-
-```text
-{formData.tipo === 'formacao' && (
-  <>
-    <div className="col-span-2">
-      <label>Projeto (Notion)</label>
-      <input type="text" value={formData.projetoNotion} ... placeholder="Nome do projeto no Notion" />
-    </div>
-    <div className="col-span-2">
-      <label>Local</label>
-      <input type="text" value={formData.local} ... placeholder="Local da formação" />
-    </div>
-  </>
-)}
-```
-
-Ambos os campos **não** terão o atributo `required`.
-
-### 2.3 Dados de inserção (~linha 607)
-
-Incluir os novos campos no objeto `insertData`:
-
-```typescript
-projeto_notion: formData.tipo === 'formacao' ? (formData.projetoNotion || null) : null,
-local: formData.tipo === 'formacao' ? (formData.local || null) : null,
-```
-
-### 2.4 Reset do formulário (~linha 650)
-
-Adicionar `projetoNotion: ''` e `local: ''` ao objeto de reset após submit bem-sucedido.
-
-## Detalhes técnicos
 
 | Item | Detalhe |
 |---|---|
-| Arquivo | `src/pages/admin/ProgramacaoPage.tsx` |
-| Migração | 1 migration: ADD COLUMN `projeto_notion` text, ADD COLUMN `local` text |
-| Campos condicionais | Visíveis apenas para `tipo === 'formacao'` |
-| Obrigatoriedade | Ambos opcionais |
-| RLS | Nenhuma alteração necessária |
+| Arquivos frontend | Nenhum — as opções vêm da tabela `instrument_fields` |
+| Migração DB | 3 statements (1 update de opções + 2 updates de dados existentes) |
+| Registros afetados | 1 registro com "São Paulo em Ação", 0 com "Tutoria" |
+| Risco | Baixo |
+
