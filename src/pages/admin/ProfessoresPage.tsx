@@ -708,6 +708,7 @@ export default function ProfessoresPage() {
       { Campo: 'Ano/Série', Valor: '1ª Série', Descrição: 'Ensino Médio' },
       { Campo: 'Ano/Série', Valor: '2ª Série', Descrição: 'Ensino Médio' },
       { Campo: 'Ano/Série', Valor: '3ª Série', Descrição: 'Ensino Médio' },
+      { Campo: 'Ano/Série', Valor: 'todos', Descrição: 'Todos os Anos/Séries (atua em todos)' },
       { Campo: 'Cargo', Valor: 'professor', Descrição: 'Professor' },
       { Campo: 'Cargo', Valor: 'coordenador', Descrição: 'Coordenador' },
       { Campo: 'Cargo', Valor: 'vice_diretor', Descrição: 'Vice-Diretor' },
