@@ -422,7 +422,7 @@ export function ProgramacaoUploadDialog({ open, onOpenChange, escolas, aaps, onU
                 <div><strong>ATOR</strong>: Nome do responsável</div>
                 <div><strong>SEGMENTO</strong>: anos_iniciais, anos_finais, ensino_medio <span className="text-xs">(obrigatório p/ formacao)</span></div>
                 <div><strong>COMPONENTE</strong>: polivalente, lingua_portuguesa, matematica <span className="text-xs">(obrigatório p/ formacao)</span></div>
-                <div><strong>ANO_SERIE</strong>: Ex: 1º Ano <span className="text-xs">(obrigatório p/ formacao)</span></div>
+                <div><strong>ANO_SERIE</strong>: 1º Ano...5º Ano | 6º Ano...9º Ano | 1ª Série...3ª Série | todos <span className="text-xs">(obrigatório p/ formacao)</span></div>
                 <div><strong>PROGRAMA</strong>: escolas, regionais, redes_municipais</div>
               </div>
             </div>
