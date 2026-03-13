@@ -137,9 +137,9 @@ export default function AAPRegistrarAcaoPage() {
       try {
         // 1) Carregar programas do AAP
         const { data: aapProgramasData } = await supabase
-          .from('aap_programas')
+          .from('user_programas')
           .select('programa')
-          .eq('aap_user_id', user.id);
+          .eq('user_id', user.id);
         
         const userAapProgramas = (aapProgramasData || []).map(ap => ap.programa as ProgramaType);
         setAapProgramas(userAapProgramas);
