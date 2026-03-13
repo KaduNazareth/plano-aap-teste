@@ -256,8 +256,8 @@ export default function AAPRegistrarAcaoPage() {
     } else {
       profs = professores.filter(p => 
         p.escola_id === prog.escola_id &&
-        p.segmento === prog.segmento &&
-        p.ano_serie === prog.ano_serie &&
+        (p.segmento === prog.segmento || p.segmento === 'todos') &&
+        (p.ano_serie === prog.ano_serie || p.ano_serie === 'todos') &&
         p.componente === prog.componente
       );
     }

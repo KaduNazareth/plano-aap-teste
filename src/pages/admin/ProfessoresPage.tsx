@@ -1149,12 +1149,18 @@ export default function ProfessoresPage() {
                         value={formData.ano_serie}
                         onChange={(e) => setFormData({ ...formData, ano_serie: e.target.value })}
                         className="input-field"
-                        disabled={formData.segmento === 'nao_se_aplica'}
+                        disabled={formData.segmento === 'nao_se_aplica' || formData.segmento === 'todos'}
                       >
                         <option value="">Não se aplica</option>
-                        {formData.segmento !== 'nao_se_aplica' && anoSerieOptions[formData.segmento]?.map(ano => (
+                        {formData.segmento === 'todos' && (
+                          <option value="todos">Todos os Anos/Séries</option>
+                        )}
+                        {formData.segmento !== 'nao_se_aplica' && formData.segmento !== 'todos' && anoSerieOptions[formData.segmento]?.map(ano => (
                           <option key={ano} value={ano}>{ano}</option>
                         ))}
+                        {formData.segmento !== 'nao_se_aplica' && formData.segmento !== 'todos' && (
+                          <option value="todos">Todos os Anos/Séries</option>
+                        )}
                       </select>
                     </div>
                     <div className="col-span-2">

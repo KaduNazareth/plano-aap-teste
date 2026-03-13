@@ -449,8 +449,8 @@ export default function RegistrosPage() {
     // Para acompanhamento_aula e visita, filtrar por todos os critérios
     return professores.filter(p => 
       p.escola_id === registro.escola_id &&
-      p.segmento === registro.segmento &&
-      p.ano_serie === registro.ano_serie &&
+      (p.segmento === registro.segmento || p.segmento === 'todos') &&
+      (p.ano_serie === registro.ano_serie || p.ano_serie === 'todos') &&
       p.componente === registro.componente
     );
   };
