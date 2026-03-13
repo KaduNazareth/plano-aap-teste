@@ -223,7 +223,7 @@ export default function ProfessoresPage() {
     const matchesSearch = prof.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prof.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesEscola = filterEscola === 'todos' || prof.escola_id === filterEscola;
-    const matchesSegmento = filterSegmento === 'todos' || prof.segmento === filterSegmento;
+    const matchesSegmento = filterSegmento === 'todos' || prof.segmento === filterSegmento || prof.segmento === 'todos';
     const matchesStatus = showInactive || prof.ativo;
     const matchesPrograma = filterPrograma === 'todos' || prof.programa?.includes(filterPrograma as ProgramaType);
     return matchesSearch && matchesEscola && matchesSegmento && matchesStatus && matchesPrograma;
