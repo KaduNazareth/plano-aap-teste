@@ -137,18 +137,18 @@ export default function AAPRegistrarAcaoPage() {
       try {
         // 1) Carregar programas do AAP
         const { data: aapProgramasData } = await supabase
-          .from('aap_programas')
+          .from('user_programas')
           .select('programa')
-          .eq('aap_user_id', user.id);
+          .eq('user_id', user.id);
         
         const userAapProgramas = (aapProgramasData || []).map(ap => ap.programa as ProgramaType);
         setAapProgramas(userAapProgramas);
         
         // 2) Carregar apenas as escolas atribuídas ao AAP
         const { data: aapEscolasData, error: aapEscolasError } = await supabase
-          .from('aap_escolas')
+          .from('user_entidades')
           .select('escola_id')
-          .eq('aap_user_id', user.id);
+          .eq('user_id', user.id);
 
         if (aapEscolasError) throw aapEscolasError;
 

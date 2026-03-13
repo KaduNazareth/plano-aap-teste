@@ -376,14 +376,14 @@ export default function UsuariosPage() {
           await supabase.from('gestor_programas').insert(
             formData.programas.map(p => ({ gestor_user_id: selectedUser.id, programa: p }))
           );
-        } else if (['aap_inicial', 'aap_portugues', 'aap_matematica'].includes(formData.role)) {
+        } else if (['aap_inicial', 'aap_portugues', 'aap_matematica', 'n4_1_cped', 'n4_2_gpi', 'n5_formador'].includes(formData.role)) {
           await supabase.from('aap_programas').insert(
             formData.programas.map(p => ({ aap_user_id: selectedUser.id, programa: p }))
           );
         }
       }
       if (formData.role && needsEntidades(formData.role) && formData.entidadeIds.length > 0) {
-        if (['aap_inicial', 'aap_portugues', 'aap_matematica'].includes(formData.role)) {
+        if (['aap_inicial', 'aap_portugues', 'aap_matematica', 'n4_1_cped', 'n4_2_gpi', 'n5_formador'].includes(formData.role)) {
           await supabase.from('aap_escolas').insert(
             formData.entidadeIds.map(id => ({ aap_user_id: selectedUser.id, escola_id: id }))
           );
