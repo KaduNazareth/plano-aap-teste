@@ -1,33 +1,75 @@
 
+# Adicionar campos "Projeto (Notion)" e "Local" ao formulário de Formação
 
-# Corrigir envio de relatório mensal por e-mail
+## Resumo
 
-## Diagnóstico
+Adicionar duas caixas de texto não obrigatórias -- **Projeto (Notion)** e **Local** -- ao formulário de criação de programação, visíveis apenas quando o tipo selecionado for `formacao`.
 
-Identifiquei dois problemas:
+## 1. Migração de banco de dados
 
-1. **Sessão expirada**: O console mostra `Invalid Refresh Token: Refresh Token Not Found`. O frontend usa `getSession()` (que pode retornar um token expirado/cacheado) em vez de `refreshSession()` — mesma questão já documentada para outras edge functions do projeto.
+Adicionar duas colunas na tabela `programacoes`:
 
-2. **Erro genérico**: O catch block em `RelatoriosPage.tsx` (linha 209) mostra apenas `"Erro ao enviar relatório mensal"` sem detalhes. A resposta de erro da edge function (que pode ser 401, 403, 429, 500) é descartada.
-
-## Alterações
-
-### Arquivo: `src/pages/admin/RelatoriosPage.tsx`
-
-**1. Trocar `getSession()` por `refreshSession()`** (linha 182):
-```typescript
-const { data: { session } } = await supabase.auth.refreshSession();
+```sql
+ALTER TABLE public.programacoes
+  ADD COLUMN projeto_notion text DEFAULT NULL,
+  ADD COLUMN local text DEFAULT NULL;
 ```
 
-**2. Melhorar tratamento de erros** (linhas 201-211):
-- Após `supabase.functions.invoke`, verificar o conteúdo da resposta de erro
-- Extrair a mensagem real do backend (`data?.error` ou `error.message`)
-- Exibir a mensagem específica no toast em vez do texto genérico
+Nenhuma política RLS adicional é necessária -- as colunas herdam as políticas já existentes na tabela.
+
+## 2. Alterações no formulário (ProgramacaoPage.tsx)
+
+### 2.1 Estado do formulário (~linha 206)
+
+Adicionar `projetoNotion` e `local` ao tipo e estado inicial de `formData`:
+
+```typescript
+projetoNotion: string;  // novo
+local: string;          // novo
+```
+
+Valor inicial: `''` para ambos.
+
+### 2.2 Campos no JSX do dialog (~após linha 2028, depois do "Tipo de Ator Participante")
+
+Renderizar condicionalmente quando `formData.tipo === 'formacao'`:
+
+```text
+{formData.tipo === 'formacao' && (
+  <>
+    <div className="col-span-2">
+      <label>Projeto (Notion)</label>
+      <input type="text" value={formData.projetoNotion} ... placeholder="Nome do projeto no Notion" />
+    </div>
+    <div className="col-span-2">
+      <label>Local</label>
+      <input type="text" value={formData.local} ... placeholder="Local da formação" />
+    </div>
+  </>
+)}
+```
+
+Ambos os campos **não** terão o atributo `required`.
+
+### 2.3 Dados de inserção (~linha 607)
+
+Incluir os novos campos no objeto `insertData`:
+
+```typescript
+projeto_notion: formData.tipo === 'formacao' ? (formData.projetoNotion || null) : null,
+local: formData.tipo === 'formacao' ? (formData.local || null) : null,
+```
+
+### 2.4 Reset do formulário (~linha 650)
+
+Adicionar `projetoNotion: ''` e `local: ''` ao objeto de reset após submit bem-sucedido.
+
+## Detalhes técnicos
 
 | Item | Detalhe |
 |---|---|
-| Arquivo | `src/pages/admin/RelatoriosPage.tsx` |
-| Linhas afetadas | ~182, 201-211 |
-| Migração DB | Nenhuma |
-| Risco | Baixo |
-
+| Arquivo | `src/pages/admin/ProgramacaoPage.tsx` |
+| Migração | 1 migration: ADD COLUMN `projeto_notion` text, ADD COLUMN `local` text |
+| Campos condicionais | Visíveis apenas para `tipo === 'formacao'` |
+| Obrigatoriedade | Ambos opcionais |
+| RLS | Nenhuma alteração necessária |
