@@ -179,7 +179,7 @@ export default function RelatoriosPage() {
   };
 
   const handleSendMonthlyReport = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.refreshSession();
     if (!session?.access_token) {
       toast.error('Sessão expirada. Faça login novamente.');
       return;
@@ -202,13 +202,16 @@ export default function RelatoriosPage() {
         body: { year, month, recipientIds, gestorIds }
       });
       
-      if (error) throw error;
+      if (error) {
+        const errorMsg = data?.error || error.message || 'Erro desconhecido';
+        throw new Error(errorMsg);
+      }
       
       const totalRecipients = (data.total_admins || 0) + (data.total_gestors || 0);
       toast.success(`Relatório mensal de ${data.month} enviado para ${totalRecipients} destinatário(s)`);
     } catch (error: any) {
       console.error('Error sending monthly report:', error);
-      toast.error('Erro ao enviar relatório mensal');
+      toast.error(error.message || 'Erro ao enviar relatório mensal');
     } finally {
       setIsSendingMonthlyReport(false);
     }
