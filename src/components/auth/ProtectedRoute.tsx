@@ -10,7 +10,7 @@ interface PermissionRouteProps {
   permission?: 'create' | 'view';
 }
 
-export function PermissionRoute({ children, acaoTipo, permission = 'view' }: PermissionRouteProps) {
+export function ProtectedRoute({ children, acaoTipo, permission = 'view' }: PermissionRouteProps) {
   const { isAuthenticated, isLoading, profile, isSimulating, simulatedRole } = useAuth();
 
   if (isLoading) {
