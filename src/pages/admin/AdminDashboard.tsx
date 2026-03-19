@@ -831,12 +831,12 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MÓDULO 4: Acompanhamento de Aula */}
-      {totalAvaliacoes > 0 && (
+      {/* MÓDULO 4: Acompanhamento de Aula — Padrão */}
+      {showStandardModule && totalAvaliacoes > 0 && (
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="card-title mb-6 flex items-center gap-2">
             <Eye size={20} className="text-warning" />
-            Acompanhamento de Aula - Avaliações ({totalAvaliacoes} avaliações)
+            Acompanhamento de Aula — Avaliações ({totalAvaliacoes} avaliações)
           </h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -870,6 +870,61 @@ export default function AdminDashboard() {
                     <ProgressRing 
                       value={item.media} 
                       maxValue={5}
+                      displayAsNumber
+                      size={50} 
+                      strokeWidth={5}
+                    />
+                    <div>
+                      <p className="text-xs text-muted-foreground">{item.name}</p>
+                      <p className="font-semibold">{item.media.toFixed(1)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MÓDULO 4b: Acompanhamento de Aula — Redes Municipais */}
+      {showRedesModule && observacoesRedes.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="card-title mb-6 flex items-center gap-2">
+            <Eye size={20} className="text-info" />
+            Acompanhamento de Aula — Redes Municipais ({observacoesRedes.length} observações)
+          </h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Radar Chart - 9 criteria */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-4">Médias por Critério</h4>
+              <ResponsiveContainer width="100%" height={350}>
+                <RadarChart data={redesRadarData}>
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 4]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Radar name="Média" dataKey="value" stroke="hsl(var(--info))" fill="hsl(var(--info))" fillOpacity={0.5} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      background: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value: number) => [value.toFixed(2), 'Média']}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Progress Rings - 9 criteria */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-4">Média por Critério (1-4)</h4>
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                {redesSatisfacaoData.map(item => (
+                  <div key={item.name} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                    <ProgressRing 
+                      value={item.media} 
+                      maxValue={4}
                       displayAsNumber
                       size={50} 
                       strokeWidth={5}
