@@ -317,7 +317,38 @@ export default function AtoresProgramaPage() {
     }
   };
 
-  const columns = [
+  const handleSaveEntidades = async () => {
+    if (!selectedUser) return;
+
+    if (formData.entidadeIds.length === 0) {
+      toast.error('Selecione pelo menos uma entidade');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await supabase.from('user_entidades').delete().eq('user_id', selectedUser.id);
+      await supabase.from('user_entidades').insert(
+        formData.entidadeIds.map(id => ({ user_id: selectedUser.id, escola_id: id }))
+      );
+
+      // Legacy sync for aap_escolas
+      if (['aap_inicial', 'aap_portugues', 'aap_matematica'].includes(selectedUser.role || '')) {
+        await supabase.from('aap_escolas').delete().eq('aap_user_id', selectedUser.id);
+        await supabase.from('aap_escolas').insert(
+          formData.entidadeIds.map(id => ({ aap_user_id: selectedUser.id, escola_id: id }))
+        );
+      }
+
+      toast.success('Entidades atualizadas com sucesso!');
+      closeDialog();
+      fetchData();
+    } catch (error) {
+      console.error('Error saving entidades:', error);
+      toast.error('Erro ao salvar entidades');
+    } finally {
+      setIsSubmitting(false);
+    }
     {
       key: 'nome',
       header: 'Ator',
