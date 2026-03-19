@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, Shield, KeyRound, Users, Eye, EyeOff } from 'lucide-react';
+import { Search, Loader2, Shield, KeyRound, Users, Eye, EyeOff, Building2 } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -37,7 +37,7 @@ interface EscolaOption {
   programa: ProgramaType[] | null;
 }
 
-type DialogMode = 'role' | 'password' | null;
+type DialogMode = 'role' | 'password' | 'entidades' | null;
 
 export default function AtoresProgramaPage() {
   const { profile, isAdmin, user: currentUser } = useAuth();
@@ -317,6 +317,40 @@ export default function AtoresProgramaPage() {
     }
   };
 
+  const handleSaveEntidades = async () => {
+    if (!selectedUser) return;
+
+    if (formData.entidadeIds.length === 0) {
+      toast.error('Selecione pelo menos uma entidade');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await supabase.from('user_entidades').delete().eq('user_id', selectedUser.id);
+      await supabase.from('user_entidades').insert(
+        formData.entidadeIds.map(id => ({ user_id: selectedUser.id, escola_id: id }))
+      );
+
+      // Legacy sync for aap_escolas
+      if (['aap_inicial', 'aap_portugues', 'aap_matematica'].includes(selectedUser.role || '')) {
+        await supabase.from('aap_escolas').delete().eq('aap_user_id', selectedUser.id);
+        await supabase.from('aap_escolas').insert(
+          formData.entidadeIds.map(id => ({ aap_user_id: selectedUser.id, escola_id: id }))
+        );
+      }
+
+      toast.success('Entidades atualizadas com sucesso!');
+      closeDialog();
+      fetchData();
+    } catch (error) {
+      console.error('Error saving entidades:', error);
+      toast.error('Erro ao salvar entidades');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const columns = [
     {
       key: 'nome',
@@ -384,23 +418,36 @@ export default function AtoresProgramaPage() {
         );
       },
     },
-    ...(iCanManage ? [{
+    ...(iCanManage || profile?.role === 'n4_2_gpi' ? [{
       key: 'actions',
       header: 'Ações',
       className: 'w-32',
       render: (u: ActorUser) => {
         const targetLevel = getRoleLevel(u.role);
-        // Can only manage users at same level or below
-        const canManage = myLevel === 1 || targetLevel >= myLevel;
-        if (!canManage) return null;
+        const canManage = iCanManage && (myLevel === 1 || targetLevel >= myLevel);
+        const isGpi = profile?.role === 'n4_2_gpi';
+        const targetIsCped = u.role === 'n4_1_cped';
+        const sharesProgram = u.programas.some(p => myProgramas.includes(p));
+        const canEditEntidades = isGpi && targetIsCped && sharesProgram;
+
+        if (!canManage && !canEditEntidades) return null;
         return (
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => openDialog('role', u)} title="Alterar papel">
-              <Shield size={16} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => openDialog('password', u)} title="Redefinir senha">
-              <KeyRound size={16} />
-            </Button>
+            {canManage && (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => openDialog('role', u)} title="Alterar papel">
+                  <Shield size={16} />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => openDialog('password', u)} title="Redefinir senha">
+                  <KeyRound size={16} />
+                </Button>
+              </>
+            )}
+            {canEditEntidades && (
+              <Button variant="ghost" size="sm" onClick={() => openDialog('entidades', u)} title="Alterar entidades">
+                <Building2 size={16} />
+              </Button>
+            )}
           </div>
         );
       },
@@ -655,6 +702,63 @@ export default function AtoresProgramaPage() {
                 <Button variant="outline" onClick={closeDialog} disabled={isSubmitting} className="flex-1">Cancelar</Button>
                 <Button onClick={handleResetPassword} disabled={isSubmitting} className="flex-1">
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Redefinir'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Entidades Dialog (GPI → CPed) */}
+      <Dialog open={dialogMode === 'entidades'} onOpenChange={() => closeDialog()}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              Alterar Entidades
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4 mt-4">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="font-medium text-foreground">{selectedUser.nome}</p>
+                <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+              </div>
+              {(() => {
+                const entidadesFiltradas = escolas.filter(e =>
+                  selectedUser.programas.length === 0 ? false :
+                  e.programa?.some(p => selectedUser.programas.includes(p))
+                );
+                return (
+                  <div>
+                    <Label>Entidades vinculadas *</Label>
+                    <div className="max-h-60 overflow-y-auto space-y-1 mt-2 border rounded-md p-2">
+                      {entidadesFiltradas.map(escola => (
+                        <label key={escola.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.entidadeIds.includes(escola.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({ ...formData, entidadeIds: [...formData.entidadeIds, escola.id] });
+                              } else {
+                                setFormData({ ...formData, entidadeIds: formData.entidadeIds.filter(id => id !== escola.id) });
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-border"
+                          />
+                          <span className="text-sm truncate">{escola.nome}</span>
+                        </label>
+                      ))}
+                      {entidadesFiltradas.length === 0 && <p className="text-xs text-muted-foreground">Nenhuma entidade encontrada para os programas do CPed</p>}
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={closeDialog} disabled={isSubmitting} className="flex-1">Cancelar</Button>
+                <Button onClick={handleSaveEntidades} disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Salvar'}
                 </Button>
               </div>
             </div>
