@@ -152,6 +152,7 @@ export default function RelatoriosPage() {
   const [escolas, setEscolas] = useState<Escola[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [professoresCount, setProfessoresCount] = useState(0);
+  const [observacoesRedes, setObservacoesRedes] = useState<ObservacaoRedesDB[]>([]);
   
   // User-specific filters
   const [userProgramas, setUserProgramas] = useState<ProgramaTypeDB[]>([]);
