@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, Shield, KeyRound, Users, Eye, EyeOff } from 'lucide-react';
+import { Search, Loader2, Shield, KeyRound, Users, Eye, EyeOff, Building2 } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
