@@ -252,27 +252,6 @@ function SidebarContent() {
             })}
           </div>
 
-          {visibleRedesForms.length > 0 && (
-            <div className="space-y-1 border-t border-sidebar-border pt-4">
-              <div className="flex items-center gap-2 px-4 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/55">
-                <ClipboardList size={14} />
-                <span>Formulários REDES</span>
-              </div>
-              {visibleRedesForms.map((item) => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={cn('sidebar-item', isActive && 'sidebar-item-active')}
-                  >
-                    <item.icon size={20} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </nav>
 
         <div className="mt-auto shrink-0 border-t border-sidebar-border p-4">
