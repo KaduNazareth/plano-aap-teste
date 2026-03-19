@@ -68,30 +68,8 @@ const App = () => (
               <Route path="/pontos-observados" element={<PontosObservadosPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-              <Route
-                path="/formularios/observacao-aula-redes"
-                element={
-                  <ProtectedRoute acaoTipo="observacao_aula_redes" permission="create">
-                    <ObservacaoAulaRedes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/formularios/encontro-eteg-redes"
-                element={
-                  <ProtectedRoute acaoTipo="encontro_eteg_redes" permission="create">
-                    <EncontroETEGRedes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/formularios/encontro-professor-redes"
-                element={
-                  <ProtectedRoute acaoTipo="encontro_professor_redes" permission="create">
-                    <EncontroProfessorRedes />
-                  </ProtectedRoute>
-                }
-              />
+
+
 
               <Route path="/aap/dashboard" element={<AdminDashboard />} />
               <Route path="/aap/calendario" element={<ProgramacaoPage />} />
