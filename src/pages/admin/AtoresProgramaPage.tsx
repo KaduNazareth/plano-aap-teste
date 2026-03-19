@@ -37,7 +37,7 @@ interface EscolaOption {
   programa: ProgramaType[] | null;
 }
 
-type DialogMode = 'role' | 'password' | null;
+type DialogMode = 'role' | 'password' | 'entidades' | null;
 
 export default function AtoresProgramaPage() {
   const { profile, isAdmin, user: currentUser } = useAuth();
