@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { InstrumentForm } from '@/components/instruments/InstrumentForm';
 import { INSTRUMENT_FORM_TYPES } from '@/hooks/useInstrumentFields';
+import { RedesFormPreview, REDES_FORM_TYPES } from '@/components/instruments/RedesFormPreview';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const INSTRUMENT_TYPE_SET = new Set<string>(INSTRUMENT_FORM_TYPES.map(t => t.value));
@@ -154,12 +155,16 @@ export default function MatrizAcoesPage() {
           </DialogHeader>
           <ScrollArea className="flex-1 min-h-0 pr-4">
             {previewFormType && (
-              <InstrumentForm
-                formType={previewFormType}
-                responses={{}}
-                onResponseChange={() => {}}
-                readOnly
-              />
+              REDES_FORM_TYPES.has(previewFormType) ? (
+                <RedesFormPreview formType={previewFormType} />
+              ) : (
+                <InstrumentForm
+                  formType={previewFormType}
+                  responses={{}}
+                  onResponseChange={() => {}}
+                  readOnly
+                />
+              )
             )}
           </ScrollArea>
           <DialogFooter>
