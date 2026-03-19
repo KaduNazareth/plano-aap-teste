@@ -37,6 +37,31 @@ interface AvaliacaoAula {
   gestao_tempo: number;
 }
 
+interface ObservacaoRedesDB {
+  nota_criterio_1: number | null;
+  nota_criterio_2: number | null;
+  nota_criterio_3: number | null;
+  nota_criterio_4: number | null;
+  nota_criterio_5: number | null;
+  nota_criterio_6: number | null;
+  nota_criterio_7: number | null;
+  nota_criterio_8: number | null;
+  nota_criterio_9: number | null;
+  status: string;
+}
+
+const REDES_CRITERIO_LABELS = [
+  'Alinhamento caderno',
+  'Objetivo claro',
+  'Repertório explicação',
+  'Metodologias',
+  'Participação alunos',
+  'Intervenções',
+  'Verificação compreensão',
+  'Clima sala',
+  'Gestão tempo',
+];
+
 interface AAPWithPrograma {
   user_id: string;
   programas: ProgramaType[];
