@@ -658,6 +658,21 @@ export default function RelatoriosPage() {
 
     const wsAcompanhamento = XLSX.utils.json_to_sheet(reportData.acompanhamentoAula);
     XLSX.utils.book_append_sheet(wb, wsAcompanhamento, 'Acompanhamento Aula');
+
+    // REDES observation sheet
+    if (observacoesRedes.length > 0) {
+      const redesExportData = [{
+        'Total Observações': observacoesRedes.length,
+        ...Object.fromEntries(REDES_CRITERIO_LABELS.map((label, i) => {
+          const key = `nota_criterio_${i + 1}` as keyof ObservacaoRedesDB;
+          const validRecords = observacoesRedes.filter(r => r[key] != null && (r[key] as number) > 0);
+          const avg = validRecords.length > 0 ? validRecords.reduce((acc, r) => acc + ((r[key] as number) || 0), 0) / validRecords.length : 0;
+          return [`Média ${label}`, avg.toFixed(2)];
+        }))
+      }];
+      const wsRedes = XLSX.utils.json_to_sheet(redesExportData);
+      XLSX.utils.book_append_sheet(wb, wsRedes, 'Observação Redes');
+    }
     
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
