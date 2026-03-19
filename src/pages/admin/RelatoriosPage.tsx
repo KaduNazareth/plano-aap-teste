@@ -591,7 +591,28 @@ export default function RelatoriosPage() {
     { name: 'Avaliação durante a aula', media: mediasGestao, cor: 'hsl(var(--success))' },
   ];
 
-  const handleExport = () => {
+  const showStandardModule = programaFilter !== 'redes_municipais';
+  const showRedesModule = programaFilter === 'redes_municipais' || programaFilter === 'todos';
+
+  // REDES observation averages
+  const calcularMediaRedesCriterio = (criterioKey: keyof ObservacaoRedesDB) => {
+    const validRecords = observacoesRedes.filter(r => r[criterioKey] != null && (r[criterioKey] as number) > 0);
+    if (validRecords.length === 0) return 0;
+    const soma = validRecords.reduce((acc, r) => acc + ((r[criterioKey] as number) || 0), 0);
+    return Number((soma / validRecords.length).toFixed(2));
+  };
+
+  const redesRadarData = REDES_CRITERIO_LABELS.map((label, i) => ({
+    subject: label,
+    value: calcularMediaRedesCriterio(`nota_criterio_${i + 1}` as keyof ObservacaoRedesDB),
+    fullMark: 4,
+  }));
+
+  const redesSatisfacaoData = REDES_CRITERIO_LABELS.map((label, i) => ({
+    name: label,
+    media: calcularMediaRedesCriterio(`nota_criterio_${i + 1}` as keyof ObservacaoRedesDB),
+  }));
+
     const reportData = {
       resumo: [{
         'Formações Previstas': formacoesPrevistas,
