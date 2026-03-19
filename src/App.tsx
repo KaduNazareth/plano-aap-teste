@@ -29,7 +29,6 @@ import AtoresProgramaPage from "./pages/admin/AtoresProgramaPage";
 import AAPRegistrarAcaoPage from "./pages/aap/AAPRegistrarAcaoPage";
 import PontosObservadosPage from "./pages/admin/PontosObservadosPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
-import UnauthorizedPage from "./pages/UnauthorizedPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
