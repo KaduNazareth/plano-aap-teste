@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
         }
 
         // Validate programas
-        if (programas !== undefined) {
+        if (programas !== undefined && programas !== null) {
           const validProgramas = validateProgramas(programas);
           if (validProgramas === null) {
             return jsonResponse({ error: 'Programas inválidos' }, 400, corsHeaders);
