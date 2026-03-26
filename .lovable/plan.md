@@ -1,28 +1,66 @@
 
 
-# Fix: Erro "Programas inválidos" ao cadastrar administradores
+# Criar Tabela Entidades Filho e Interface de Gestão (N1)
 
-## Problema
-Quando o admin cria um usuário com role `admin`, o frontend envia `programas: null` (porque admin não precisa de programas). Na edge function, a validação `if (programas !== undefined)` captura `null`, e `validateProgramas(null)` falha porque `Array.isArray(null)` retorna `false`, resultando no erro "Programas inválidos".
+## Análise dos Campos
 
-## Solução
-Alterar a validação na edge function `manage-users` para ignorar `null` além de `undefined`:
+Os campos propostos fazem sentido. Uma sugestão: além dos 3 campos informados, adicionar `ativa` (boolean) para permitir desativar sem perder histórico, seguindo o mesmo padrão da tabela `escolas`.
 
-**Arquivo**: `supabase/functions/manage-users/index.ts`, linha 196
+O relacionamento via CODESC (texto) ao invés de FK por UUID é viável, mas tem um risco: se o CODESC do pai for alterado, o vínculo quebra. Sugiro usar uma FK para `escolas.id` internamente e exibir o CODESC apenas na interface como campo de busca/lookup. Assim o usuário digita o CODESC, o sistema resolve para o `escola_id` correto.
 
-Mudar de:
-```typescript
-if (programas !== undefined) {
+## Alterações
+
+### 1. Migration SQL — nova tabela `entidades_filho`
+```sql
+CREATE TABLE public.entidades_filho (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  escola_id uuid NOT NULL REFERENCES public.escolas(id) ON DELETE CASCADE,
+  codesc_filho text NOT NULL,
+  nome text NOT NULL,
+  ativa boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.entidades_filho ENABLE ROW LEVEL SECURITY;
+
+-- Somente N1 (admin) gerencia
+CREATE POLICY "N1 Admins manage entidades_filho"
+  ON public.entidades_filho FOR ALL TO authenticated
+  USING (is_admin(auth.uid()))
+  WITH CHECK (is_admin(auth.uid()));
+
+-- Leitura para autenticados (necessário para os relatórios futuros)
+CREATE POLICY "Authenticated users can view entidades_filho"
+  ON public.entidades_filho FOR SELECT TO authenticated
+  USING (auth.uid() IS NOT NULL);
 ```
-Para:
-```typescript
-if (programas !== undefined && programas !== null) {
-```
 
-Mesma correção para `entidadeIds` na linha 204 (já trata `null`, mas por consistência).
+### 2. Nova página `src/pages/admin/EntidadesFilhoPage.tsx`
+- Tabela listando entidades filho com colunas: CODESC Pai, Nome Pai, CODESC Filho, Nome Filho, Status
+- Filtro por busca (texto) e toggle mostrar inativos
+- Dialog de criação/edição com campos:
+  - **CODESC Pai**: input texto — ao digitar, busca na tabela `escolas` por codesc e exibe o nome como confirmação
+  - **CODESC Filho**: input texto
+  - **Nome da Entidade Filho**: input texto
+  - **Ativa**: switch (default true)
+- Botão de excluir com confirmação
+- Acesso restrito a `isAdmin`
 
-## Impacto
-- Correção de uma linha na edge function
-- Nenhuma alteração no frontend
-- Administradores poderão ser cadastrados normalmente
+### 3. Rota em `src/App.tsx`
+- Adicionar rota `/entidades-filho` apontando para `EntidadesFilhoPage`
+
+### 4. Menu no `src/components/layout/Sidebar.tsx`
+- Adicionar item "Entidades Filho" apenas no `adminMenuItems` (N1)
+
+### 5. Rota protegida em `src/components/layout/AppLayout.tsx`
+- Adicionar `/entidades-filho` nas rotas permitidas para o tier admin
+
+## Resumo de arquivos
+| Arquivo | Alteração |
+|---|---|
+| Migration SQL | Criar tabela `entidades_filho` com RLS |
+| `src/pages/admin/EntidadesFilhoPage.tsx` | Nova página de gestão |
+| `src/App.tsx` | Adicionar rota |
+| `src/components/layout/Sidebar.tsx` | Adicionar item no menu admin |
+| `src/components/layout/AppLayout.tsx` | Permitir rota para admin |
 
