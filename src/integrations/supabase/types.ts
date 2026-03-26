@@ -1199,6 +1199,59 @@ export type Database = {
         }
         Relationships: []
       }
+      relatorios_monitoramento_gestao: {
+        Row: {
+          created_at: string
+          frente_trabalho: string
+          id: string
+          observacao: string | null
+          pdca_aprendizados: string | null
+          pdca_encaminhamentos: string | null
+          pdca_material: string | null
+          pdca_pontos_atencao: string | null
+          pdca_temas: string | null
+          publico: string[]
+          registro_acao_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          frente_trabalho: string
+          id?: string
+          observacao?: string | null
+          pdca_aprendizados?: string | null
+          pdca_encaminhamentos?: string | null
+          pdca_material?: string | null
+          pdca_pontos_atencao?: string | null
+          pdca_temas?: string | null
+          publico?: string[]
+          registro_acao_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          frente_trabalho?: string
+          id?: string
+          observacao?: string | null
+          pdca_aprendizados?: string | null
+          pdca_encaminhamentos?: string | null
+          pdca_material?: string | null
+          pdca_pontos_atencao?: string | null
+          pdca_temas?: string | null
+          publico?: string[]
+          registro_acao_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relatorios_monitoramento_gestao_registro_acao_id_fkey"
+            columns: ["registro_acao_id"]
+            isOneToOne: false
+            referencedRelation: "registros_acao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       relatorios_professor_redes: {
         Row: {
           aspectos_criticos: string | null
