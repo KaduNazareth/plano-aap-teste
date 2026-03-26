@@ -262,6 +262,41 @@ export type Database = {
         }
         Relationships: []
       }
+      entidades_filho: {
+        Row: {
+          ativa: boolean
+          codesc_filho: string
+          created_at: string
+          escola_id: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativa?: boolean
+          codesc_filho: string
+          created_at?: string
+          escola_id: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativa?: boolean
+          codesc_filho?: string
+          created_at?: string
+          escola_id?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entidades_filho_escola_id_fkey"
+            columns: ["escola_id"]
+            isOneToOne: false
+            referencedRelation: "escolas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escolas: {
         Row: {
           ativa: boolean
