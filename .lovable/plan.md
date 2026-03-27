@@ -1,36 +1,28 @@
 
 
-# Permitir visualização e configuração do formulário Monitoramento e Gestão
+# Tornar "Monitoramento e Gestão" visível na Matriz de Ações e Configurar Formulários
 
-## Problema
+## Diagnóstico
 
-O formulário "Monitoramento e Gestão" é hardcoded (`MonitoramentoGestaoForm.tsx`) e não aparece em `INSTRUMENT_FORM_TYPES`, então:
-1. Na **Matriz de Ações**, não tem botão "Visualizar" (aparece "—")
-2. Não tem pré-visualização na dialog de preview
+1. **Matriz de Ações**: O código já trata `monitoramento_gestao` via `REDES_FORM_TYPES` — o botão "Visualizar" deveria aparecer. Se não aparece, pode ser que a versão anterior do código não foi deployada corretamente. Verificarei se há algum problema residual.
+
+2. **Configurar Formulários**: O dropdown de instrumentos em `FormFieldConfigPage.tsx` usa `INSTRUMENT_FORM_TYPES` de `useInstrumentFields.ts`. O `monitoramento_gestao` **não está nesta lista**, por isso não aparece no dropdown.
 
 ## Solução
 
-### 1. Criar preview do Monitoramento e Gestão em `RedesFormPreview.tsx`
+### Arquivo: `src/hooks/useInstrumentFields.ts`
+Adicionar `monitoramento_gestao` ao array `INSTRUMENT_FORM_TYPES`:
+```typescript
+{ value: 'monitoramento_gestao', label: 'Monitoramento e Gestão' },
+```
 
-Adicionar um componente `MonitoramentoGestaoPreview` que exibe a estrutura do formulário em modo somente leitura (similar aos previews REDES existentes), mostrando:
-- Campos de identificação (URE, Data, Horário)
-- Público do Encontro (7 opções de checkbox)
-- Frente de Trabalho (6 opções de rádio)
-- Observação (texto)
-- Campos condicionais PDCA (5 campos de texto)
-
-Expandir o `REDES_FORM_TYPES` Set para incluir `monitoramento_gestao` e tratar o novo case no switch.
-
-### 2. Atualizar `getFormTypeForAcao` em `MatrizAcoesPage.tsx`
-
-Fazer a função reconhecer tanto os REDES forms quanto `monitoramento_gestao`, retornando o tipo correto para que o botão "Visualizar" apareça.
-
-Atualizar `getFormLabel` para buscar o label também em `ACAO_TYPE_INFO` como fallback.
+Isso faz com que:
+- Apareça no dropdown da página "Configurar Formulários"
+- Também seja reconhecido pelo `INSTRUMENT_TYPE_SET` na Matriz de Ações (redundância segura com `REDES_FORM_TYPES`)
 
 ## Arquivos impactados
 
 | Arquivo | Alteração |
 |---|---|
-| `src/components/instruments/RedesFormPreview.tsx` | Adicionar `MonitoramentoGestaoPreview` + incluir `monitoramento_gestao` no Set e switch |
-| `src/pages/admin/MatrizAcoesPage.tsx` | `getFormTypeForAcao`: retornar tipo para REDES e monitoramento; `getFormLabel`: fallback para `ACAO_TYPE_INFO` |
+| `src/hooks/useInstrumentFields.ts` | Adicionar `monitoramento_gestao` ao `INSTRUMENT_FORM_TYPES` |
 
