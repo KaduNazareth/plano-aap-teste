@@ -242,6 +242,22 @@ export default function ProgramacaoPage() {
     turmaFormacao: '',
   });
 
+  // Fetch turmas de formação distintas
+  useEffect(() => {
+    const fetchTurmas = async () => {
+      const { data } = await supabase
+        .from('professores')
+        .select('turma_formacao')
+        .not('turma_formacao', 'is', null)
+        .eq('ativo', true);
+      if (data) {
+        const unique = [...new Set(data.map(d => (d as any).turma_formacao as string).filter(Boolean))].sort();
+        setDistinctTurmasFormacao(unique);
+      }
+    };
+    fetchTurmas();
+  }, []);
+
   // Fetch programacoes from database
   const fetchProgramacoes = async () => {
     setIsLoading(true);
