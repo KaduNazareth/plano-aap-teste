@@ -1,47 +1,41 @@
 
 
-# Sincronizar exclusão entre Registros de Ação e Calendário
+# Adicionar campo "Turma de Formação" multi-select nos formulários REDES
 
-## Problema
+## Situação atual
 
-Ao excluir registros de ação na página "Registros de Ação", as programações vinculadas no Calendário continuam aparecendo. O sistema não mantém sincronização bidirecional entre as duas tabelas.
+- **Encontro Professor**: já tem `turma_formacao` como select simples (single). Coluna no banco é `text`.
+- **Encontro ET/EG**: não tem campo de turma. Tabela `relatorios_eteg_redes` não tem coluna `turma_formacao`.
 
-Atualmente:
-- **Excluir registro**: apaga `registros_acao` + dependências, mas NÃO toca na `programacoes` vinculada
-- **Excluir programação**: desvincula o registro (`programacao_id = null`) mas NÃO apaga o `registros_acao`
+## Plano
 
-## Solução
+### 1. Migration: adicionar coluna e converter tipo
 
-Quando um `registro_acao` for excluído, verificar se há uma `programacao` vinculada (via `programacao_id`) e excluí-la também. Isso garante que o calendário reflita a exclusão.
+- Adicionar `turma_formacao text[]` na tabela `relatorios_eteg_redes`
+- Converter `turma_formacao` de `text` para `text[]` na tabela `relatorios_professor_redes` (preservando dados existentes)
 
-### Arquivo: `src/pages/admin/RegistrosPage.tsx`
+### 2. Componente multi-select com checkboxes
 
-**Exclusão individual (`handleDeleteRegistro`)**:
-- Após deletar dependências e antes/após deletar o registro, verificar se `registroToDelete.programacao_id` existe
-- Se sim, deletar a programação correspondente da tabela `programacoes`
+Em ambos os formulários, substituir o Select simples por um dropdown com checkboxes (usando Popover + Command ou Popover + Checkbox list) que permite selecionar múltiplas turmas. As turmas selecionadas são exibidas como badges/chips.
 
-**Exclusão em lote (`handleBatchDelete`)**:
-- Para cada registro sendo excluído, buscar o `programacao_id` do registro
-- Se existir, deletar a programação vinculada
+### 3. Atualizar `EncontroETEGRedesForm.tsx`
 
-### Detalhes técnicos
+- Adicionar campo `turma_formacao` (array de strings) ao schema zod
+- Buscar turmas disponíveis da tabela `professores` (mesmo padrão do Professor)
+- Renderizar o componente multi-select na seção Identificação
+- Salvar como `text[]` no insert
 
-```text
-Fluxo atual:
-  Delete presencas → Delete avaliacoes → Delete alteracoes → Delete registro
+### 4. Atualizar `EncontroProfessorRedesForm.tsx`
 
-Fluxo novo:
-  Delete presencas → Delete avaliacoes → Delete alteracoes → Delete registro
-  → Se programacao_id existir → Delete programacao vinculada
-```
+- Alterar `turma_formacao` no schema de `z.string().optional()` para `z.array(z.string()).optional()`
+- Substituir o Select simples pelo componente multi-select
+- Salvar como `text[]` no insert
 
-Os dados de `programacao_id` já estão disponíveis no objeto `registroToDelete` (exclusão individual) e podem ser buscados antes da exclusão no batch.
-
-Após exclusão, invalidar também a query de programações para refletir no calendário.
-
-## Arquivo impactado
+## Arquivos impactados
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/admin/RegistrosPage.tsx` | Adicionar exclusão da programação vinculada em `handleDeleteRegistro` e `handleBatchDelete` |
+| `supabase/migrations/*` | Adicionar coluna `turma_formacao text[]` no ETEG; converter `text` → `text[]` no Professor |
+| `src/components/formularios/EncontroETEGRedesForm.tsx` | Adicionar campo turma_formacao multi-select |
+| `src/components/formularios/EncontroProfessorRedesForm.tsx` | Converter turma_formacao para multi-select |
 
