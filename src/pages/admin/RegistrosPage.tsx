@@ -755,6 +755,9 @@ export default function RegistrosPage() {
       
       if (alteracoesDeleteError) throw alteracoesDeleteError;
       
+      // Delete related instrument_responses
+      await supabase.from('instrument_responses').delete().eq('registro_acao_id', registroToDelete.id);
+
       // Delete the registro itself
       const { error } = await supabase
         .from('registros_acao')
@@ -762,6 +765,11 @@ export default function RegistrosPage() {
         .eq('id', registroToDelete.id);
       
       if (error) throw error;
+
+      // Delete linked programacao if exists
+      if (registroToDelete.programacao_id) {
+        await supabase.from('programacoes').delete().eq('id', registroToDelete.programacao_id);
+      }
       
       toast.success('Registro excluído com sucesso!');
       setIsDeleteDialogOpen(false);
@@ -769,6 +777,7 @@ export default function RegistrosPage() {
       queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
       queryClient.invalidateQueries({ queryKey: ['presencas'] });
       queryClient.invalidateQueries({ queryKey: ['avaliacoes_aula'] });
+      queryClient.invalidateQueries({ queryKey: ['programacoes'] });
     } catch (error) {
       console.error('Error deleting registro:', error);
       toast.error('Erro ao excluir registro');
@@ -785,6 +794,12 @@ export default function RegistrosPage() {
     let successCount = 0;
     let errorCount = 0;
     
+    // Collect programacao_ids before deleting registros
+    const registrosToDelete = registros.filter(r => selectedIds.has(r.id));
+    const programacaoIds = registrosToDelete
+      .map(r => r.programacao_id)
+      .filter((id): id is string => !!id);
+
     for (const id of selectedIds) {
       try {
         // Delete related presencas
@@ -804,6 +819,11 @@ export default function RegistrosPage() {
         errorCount++;
       }
     }
+
+    // Delete linked programacoes
+    if (programacaoIds.length > 0) {
+      await supabase.from('programacoes').delete().in('id', programacaoIds);
+    }
     
     if (successCount > 0) {
       toast.success(`${successCount} registro(s) excluído(s) com sucesso!`);
@@ -818,6 +838,7 @@ export default function RegistrosPage() {
     queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
     queryClient.invalidateQueries({ queryKey: ['presencas'] });
     queryClient.invalidateQueries({ queryKey: ['avaliacoes_aula'] });
+    queryClient.invalidateQueries({ queryKey: ['programacoes'] });
   };
 
   const handleExportExcel = () => {
