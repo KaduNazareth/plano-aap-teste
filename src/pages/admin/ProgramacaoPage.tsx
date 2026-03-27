@@ -160,6 +160,7 @@ export default function ProgramacaoPage() {
   const [selectedProgramacaoIds, setSelectedProgramacaoIds] = useState<Set<string>>(new Set());
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false);
+  const [distinctTurmasFormacao, setDistinctTurmasFormacao] = useState<string[]>([]);
   
   // Estados para avaliação de acompanhamento de aula (instrument-based)
   const [isAvaliacaoDialogOpen, setIsAvaliacaoDialogOpen] = useState(false);

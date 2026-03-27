@@ -44,6 +44,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function EncontroProfessorRedesForm({ entidades, data, horarioInicio, onSuccess }: RedesFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turmasFormacao, setTurmasFormacao] = useState<string[]>([]);
 
   const singleEntidade = entidades.length === 1;
   const parsedDate = data ? new Date(data + 'T12:00:00') : undefined;

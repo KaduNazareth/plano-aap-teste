@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Upload, Download, FileSpreadsheet, Loader2, CheckCircle, XCircle, Power, Calendar, KeyRound, Eye, EyeOff, Link2 } from 'lucide-react';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
