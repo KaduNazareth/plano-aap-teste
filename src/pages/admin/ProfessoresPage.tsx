@@ -342,6 +342,7 @@ export default function ProfessoresPage() {
             ativo: formData.ativo,
             programa: formData.programa,
             user_id: formData.user_id || null,
+            turma_formacao: formData.turma_formacao || null,
           } as any)
           .eq('id', editingProfessor.id);
 
@@ -362,6 +363,7 @@ export default function ProfessoresPage() {
             ativo: formData.ativo,
             programa: formData.programa,
             user_id: formData.user_id || null,
+            turma_formacao: formData.turma_formacao || null,
           } as any);
 
         if (error) throw error;
