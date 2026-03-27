@@ -2038,6 +2038,21 @@ export default function ProgramacaoPage() {
                       <p className="text-xs text-muted-foreground mt-1">Filtra quais atores aparecem na lista de presença</p>
                     </div>
                   )}
+
+                  {/* Turma de Formação - somente para Encontro Professor REDES */}
+                  {formData.tipo === 'encontro_professor_redes' && (
+                    <div className="col-span-2">
+                      <label className="form-label">Turma de Formação</label>
+                      <input
+                        type="text"
+                        value={formData.turmaFormacao}
+                        onChange={(e) => setFormData(prev => ({ ...prev, turmaFormacao: e.target.value }))}
+                        className="input-field"
+                        placeholder="Ex: Turma A"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Filtra participantes pela turma de formação na lista de presença</p>
+                    </div>
+                  )
                   
                   {formData.tipo === 'formacao' && (
                     <>
