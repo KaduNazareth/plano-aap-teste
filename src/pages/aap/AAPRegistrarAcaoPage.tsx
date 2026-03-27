@@ -1215,6 +1215,22 @@ export default function AAPRegistrarAcaoPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Monitoramento e Gestão Dialog */}
+      <MonitoramentoGestaoDialog
+        open={!!selectedProgramacao && isMonitoramentoGestao}
+        onClose={() => setSelectedProgramacao(null)}
+        selectedProgramacao={selectedProgramacao}
+        escolas={escolas}
+        userId={user?.id || ''}
+        onSuccess={async () => {
+          await supabase.from('programacoes').update({ status: 'realizada' }).eq('id', selectedProgramacao!.id);
+          const { data: up } = await supabase.from('programacoes').select('*').eq('status', 'prevista').eq('aap_id', user!.id).order('data', { ascending: true });
+          setProgramacoes(up || []);
+          queryClient.invalidateQueries({ queryKey: ['programacoes'] });
+          queryClient.invalidateQueries({ queryKey: ['registros_acao'] });
+          setSelectedProgramacao(null);
+        }}
+      />
 
       <QuestionSelectionStep
         open={showQuestionSelection}
