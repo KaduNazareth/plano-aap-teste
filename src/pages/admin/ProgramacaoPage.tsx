@@ -2052,7 +2052,7 @@ export default function ProgramacaoPage() {
                       />
                       <p className="text-xs text-muted-foreground mt-1">Filtra participantes pela turma de formação na lista de presença</p>
                     </div>
-                  )
+                  )}
                   
                   {formData.tipo === 'formacao' && (
                     <>
