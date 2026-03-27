@@ -689,7 +689,7 @@ export default function ProfessoresPage() {
   const handleExportTemplate = () => {
     // Aba 1 — Atores (dados a preencher)
     const template = [
-      { Nome: 'Maria Silva', Email: 'maria@escola.edu.br', Telefone: '(11) 99999-9999', Escola: 'Nome da Escola', Segmento: 'anos_iniciais', Componente: 'polivalente', 'Ano/Série': '1º Ano', Cargo: 'professor', Programa: 'escolas' },
+      { Nome: 'Maria Silva', Email: 'maria@escola.edu.br', Telefone: '(11) 99999-9999', Escola: 'Nome da Escola', Segmento: 'anos_iniciais', Componente: 'polivalente', 'Ano/Série': '1º Ano', Cargo: 'professor', Programa: 'escolas', TurmaFormacao: 'Turma A' },
     ];
 
     // Aba 2 — Valores Válidos (guia de referência)
@@ -751,6 +751,7 @@ export default function ProfessoresPage() {
       AnoSerie: prof.ano_serie,
       Cargo: cargoLabels[prof.cargo] || prof.cargo,
       Ativo: prof.ativo ? 'Sim' : 'Não',
+      TurmaFormacao: prof.turma_formacao || '',
     }));
     
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -1216,6 +1217,19 @@ export default function ProfessoresPage() {
                           </label>
                         ))}
                       </div>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="form-label">Turma de Formação</label>
+                      <input
+                        type="text"
+                        value={formData.turma_formacao}
+                        onChange={(e) => setFormData({ ...formData, turma_formacao: e.target.value })}
+                        className="input-field"
+                        placeholder="Ex: Turma A"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Identifica a turma de formação do ator (usado para filtrar presença)
+                      </p>
                     </div>
                     {canManageProfessores && (
                       <div className="col-span-2">
