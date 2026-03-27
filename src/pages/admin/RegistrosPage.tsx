@@ -925,11 +925,11 @@ export default function RegistrosPage() {
       header: 'Tipo',
       className: 'w-12 min-w-[48px]',
       render: (registro: RegistroAcaoDB) => {
-        const Icon = registro.tipo === 'formacao' ? GraduationCap : 
-                     registro.tipo === 'acompanhamento_aula' ? ClipboardList : Eye;
+        const typeInfo = ACAO_TYPE_INFO[normalizeAcaoTipo(registro.tipo)];
+        const Icon = typeInfo?.icon || Eye;
         const variant = registro.tipo === 'formacao' ? 'primary' : 
-                       registro.tipo === 'acompanhamento_aula' ? 'warning' : 'info';
-        const label = tipoAcaoLabels[registro.tipo] || registro.tipo;
+                       registro.tipo === 'acompanhamento_aula' || registro.tipo === 'observacao_aula' ? 'warning' : 'info';
+        const label = typeInfo?.label || registro.tipo;
         const formacaoOrigem = registro.formacao_origem_id 
           ? programacoes.find(p => p.id === registro.formacao_origem_id) 
           : null;
