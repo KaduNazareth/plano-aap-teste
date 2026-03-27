@@ -1,0 +1,1 @@
+ALTER TABLE public.relatorios_professor_redes ADD COLUMN turma_formacao text;

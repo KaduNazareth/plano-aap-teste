@@ -25,6 +25,7 @@ const schema = z.object({
   horario: z.string().optional(),
   formador: z.string().trim().min(1, 'Formador(a) é obrigatório'),
   turma_ano: z.string().trim().min(1, 'Turma / Ano é obrigatório'),
+  turma_formacao: z.string().optional(),
   item_1: z.coerce.number().int().min(0).max(2),
   item_2: z.coerce.number().int().min(0).max(2),
   item_3: z.coerce.number().int().min(0).max(2),
@@ -53,6 +54,7 @@ export default function EncontroProfessorRedesForm({ entidades, data, horarioIni
       municipio: singleEntidade ? entidades[0].nome : '',
       data: parsedDate,
       horario: horarioInicio || '',
+      turma_formacao: '',
       relato_objetivo: '',
       pontos_fortes: '',
       aspectos_criticos: '',
@@ -127,6 +129,9 @@ export default function EncontroProfessorRedesForm({ entidades, data, horarioIni
               )} />
               <FormField control={form.control} name="turma_ano" render={({ field }) => (
                 <FormItem><FormLabel>Turma / Ano*</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="turma_formacao" render={({ field }) => (
+                <FormItem><FormLabel>Turma de Formação</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="Ex: Turma A" /></FormControl><FormMessage /></FormItem>
               )} />
             </CardContent>
           </Card>
