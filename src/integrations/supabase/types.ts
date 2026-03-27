@@ -1156,6 +1156,7 @@ export type Database = {
           pontos_fortes: string | null
           relato_objetivo: string | null
           status: string
+          turma_formacao: string[] | null
         }
         Insert: {
           aspectos_criticos?: string | null
@@ -1179,6 +1180,7 @@ export type Database = {
           pontos_fortes?: string | null
           relato_objetivo?: string | null
           status?: string
+          turma_formacao?: string[] | null
         }
         Update: {
           aspectos_criticos?: string | null
@@ -1202,6 +1204,7 @@ export type Database = {
           pontos_fortes?: string | null
           relato_objetivo?: string | null
           status?: string
+          turma_formacao?: string[] | null
         }
         Relationships: []
       }
@@ -1281,7 +1284,7 @@ export type Database = {
           relato_objetivo: string | null
           status: string
           turma_ano: string
-          turma_formacao: string | null
+          turma_formacao: string[] | null
         }
         Insert: {
           aspectos_criticos?: string | null
@@ -1305,7 +1308,7 @@ export type Database = {
           relato_objetivo?: string | null
           status?: string
           turma_ano: string
-          turma_formacao?: string | null
+          turma_formacao?: string[] | null
         }
         Update: {
           aspectos_criticos?: string | null
@@ -1329,7 +1332,7 @@ export type Database = {
           relato_objetivo?: string | null
           status?: string
           turma_ano?: string
-          turma_formacao?: string | null
+          turma_formacao?: string[] | null
         }
         Relationships: []
       }
