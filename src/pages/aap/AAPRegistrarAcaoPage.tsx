@@ -214,6 +214,18 @@ export default function AAPRegistrarAcaoPage() {
   const availableProfessors = useMemo(() => {
     if (!selectedProgramacao) return [];
     
+    // Para encontro_professor_redes, filtrar por turma_formacao se preenchido
+    if (selectedProgramacao.tipo === 'encontro_professor_redes') {
+      return professores.filter(p => {
+        if (p.escola_id !== selectedProgramacao.escola_id) return false;
+        // Filtrar por turma_formacao se a programação tiver uma definida
+        if (selectedProgramacao.turma_formacao && selectedProgramacao.turma_formacao.trim()) {
+          if (p.turma_formacao !== selectedProgramacao.turma_formacao.trim()) return false;
+        }
+        return true;
+      });
+    }
+    
     // Para formação, filtrar também por segmento e ano_serie apenas se não for "todos"
     if (selectedProgramacao.tipo === 'formacao') {
       return professores.filter(p => {
