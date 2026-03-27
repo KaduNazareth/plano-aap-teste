@@ -644,6 +644,7 @@ export default function ProfessoresPage() {
               cargo,
               ativo: true,
               programa,
+              turma_formacao: String(row['TurmaFormacao'] || row['turma_formacao'] || row['Turma Formação'] || '').trim() || null,
             };
           })
           .filter((p) => p.nome && p.escola_id);
