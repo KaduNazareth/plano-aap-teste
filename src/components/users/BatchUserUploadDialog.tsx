@@ -22,7 +22,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-type AppRole = 'admin' | 'gestor' | 'aap_inicial' | 'aap_portugues' | 'aap_matematica';
 type ProgramaType = 'escolas' | 'regionais' | 'redes_municipais';
 
 interface BatchUser {
@@ -41,29 +40,18 @@ interface BatchUserUploadDialogProps {
   onSuccess: () => void;
 }
 
-const roleMapping: Record<string, AppRole | null> = {
-  'admin': 'admin',
-  'administrador': 'admin',
-  'gestor': 'gestor',
-  'aap_inicial': 'aap_inicial',
-  'aap anos iniciais': 'aap_inicial',
-  'aap iniciais': 'aap_inicial',
-  'aap_portugues': 'aap_portugues',
-  'aap português': 'aap_portugues',
-  'aap lingua portuguesa': 'aap_portugues',
-  'aap_matematica': 'aap_matematica',
-  'aap matemática': 'aap_matematica',
-  '': null,
-  'sem papel': null,
-};
-
-const roleLabels: Record<AppRole, string> = {
-  admin: 'Administrador',
-  gestor: 'Gestor',
-  aap_inicial: 'AAP Anos Iniciais',
-  aap_portugues: 'AAP Língua Portuguesa',
-  aap_matematica: 'AAP Matemática',
-};
+// Build roleMapping dynamically from ALL_ROLES
+const roleMapping: Record<string, string | null> = { '': null, 'sem papel': null };
+ALL_ROLES.forEach(r => {
+  roleMapping[r.value] = r.value;
+});
+// Legacy friendly aliases
+roleMapping['administrador'] = 'admin';
+roleMapping['aap anos iniciais'] = 'aap_inicial';
+roleMapping['aap iniciais'] = 'aap_inicial';
+roleMapping['aap português'] = 'aap_portugues';
+roleMapping['aap lingua portuguesa'] = 'aap_portugues';
+roleMapping['aap matemática'] = 'aap_matematica';
 
 const programaMapping: Record<string, ProgramaType | null> = {
   'escolas': 'escolas',
