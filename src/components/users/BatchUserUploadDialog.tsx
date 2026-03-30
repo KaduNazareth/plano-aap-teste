@@ -128,7 +128,19 @@ export function BatchUserUploadDialog({ open, onClose, onSuccess }: BatchUserUpl
   };
 
   const downloadTemplate = () => {
-    const template = 'nome;email;senha;papel;programa\nJoão Silva;joao@email.com;Senha@123;aap_inicial;escolas\nMaria Santos;maria@email.com;Senha@123;gestor;regionais\nCarlos Admin;carlos@email.com;Senha@123;admin;';
+    // Reference header with all valid values
+    const rolesRef = ALL_ROLES.map(r => `${r.value} = ${r.label}`).join(', ');
+    const progRef = 'escolas, regionais, redes_municipais';
+    const header = 'nome;email;senha;papel;programa';
+    const examples = [
+      'João Silva;joao@email.com;Senha@123;n5_formador;escolas',
+      'Maria Santos;maria@email.com;Senha@123;gestor;regionais',
+      'Carlos Admin;carlos@email.com;Senha@123;admin;',
+      'Ana Coord;ana@email.com;Senha@123;n3_coordenador_programa;redes_municipais',
+      'Pedro Prof;pedro@email.com;Senha@123;n7_professor;',
+    ];
+    const reference = `\n# VALORES VÁLIDOS PARA PAPEL: ${rolesRef}\n# VALORES VÁLIDOS PARA PROGRAMA: ${progRef}`;
+    const template = header + '\n' + examples.join('\n') + reference;
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
