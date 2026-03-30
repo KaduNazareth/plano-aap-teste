@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Upload, Download, Loader2, AlertCircle, CheckCircle, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { ALL_ROLES, ROLES_WITH_PROGRAMAS, roleLabelsMap } from '@/config/roleConfig';
+import type { AppRole } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
