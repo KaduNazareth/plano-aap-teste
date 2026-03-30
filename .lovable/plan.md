@@ -1,41 +1,32 @@
 
 
-# Adicionar campo "Turma de Formação" multi-select nos formulários REDES
+# Ajustar modelo de upload em lote para informar valores válidos de Papel e Programa
 
-## Situação atual
+## Problema
 
-- **Encontro Professor**: já tem `turma_formacao` como select simples (single). Coluna no banco é `text`.
-- **Encontro ET/EG**: não tem campo de turma. Tabela `relatorios_eteg_redes` não tem coluna `turma_formacao`.
+O modelo CSV e as instruções do dialog de cadastro em lote mostram apenas 5 papéis antigos (admin, gestor, aap_inicial, aap_portugues, aap_matematica), ignorando os papéis N3-N8 que existem no sistema. O usuário não sabe quais valores usar.
 
-## Plano
+## Solução
 
-### 1. Migration: adicionar coluna e converter tipo
+### Arquivo: `src/components/users/BatchUserUploadDialog.tsx`
 
-- Adicionar `turma_formacao text[]` na tabela `relatorios_eteg_redes`
-- Converter `turma_formacao` de `text` para `text[]` na tabela `relatorios_professor_redes` (preservando dados existentes)
+1. **Expandir `roleMapping`** para incluir todos os papéis N1-N8:
+   - `n3_coordenador_programa`, `n4_1_cped`, `n4_2_gpi`, `n5_formador`, `n6_coord_pedagogico`, `n7_professor`, `n8_equipe_tecnica`
+   - Manter os mapeamentos legados existentes
 
-### 2. Componente multi-select com checkboxes
+2. **Expandir `roleLabels`** com os rótulos de todos os papéis
 
-Em ambos os formulários, substituir o Select simples por um dropdown com checkboxes (usando Popover + Command ou Popover + Checkbox list) que permite selecionar múltiplas turmas. As turmas selecionadas são exibidas como badges/chips.
+3. **Atualizar `AppRole` type** local para incluir todos os papéis
 
-### 3. Atualizar `EncontroETEGRedesForm.tsx`
+4. **Atualizar as instruções** na tela (seção `<ul>`) para listar claramente os valores aceitos em formato tabular ou lista:
+   - Papel: `admin`, `gestor`, `n3_coordenador_programa`, `n4_1_cped`, `n4_2_gpi`, `n5_formador`, `n6_coord_pedagogico`, `n7_professor`, `n8_equipe_tecnica`
+   - Programa: `escolas`, `regionais`, `redes_municipais`
 
-- Adicionar campo `turma_formacao` (array de strings) ao schema zod
-- Buscar turmas disponíveis da tabela `professores` (mesmo padrão do Professor)
-- Renderizar o componente multi-select na seção Identificação
-- Salvar como `text[]` no insert
+5. **Atualizar o template CSV** (`downloadTemplate`) para incluir exemplos com os novos papéis e uma aba/comentário de referência com todos os valores possíveis
 
-### 4. Atualizar `EncontroProfessorRedesForm.tsx`
+6. **Ajustar validação** de papéis que exigem programa (ROLES_WITH_PROGRAMAS) para usar a mesma lógica do roleConfig
 
-- Alterar `turma_formacao` no schema de `z.string().optional()` para `z.array(z.string()).optional()`
-- Substituir o Select simples pelo componente multi-select
-- Salvar como `text[]` no insert
+## Resultado
 
-## Arquivos impactados
-
-| Arquivo | Alteração |
-|---|---|
-| `supabase/migrations/*` | Adicionar coluna `turma_formacao text[]` no ETEG; converter `text` → `text[]` no Professor |
-| `src/components/formularios/EncontroETEGRedesForm.tsx` | Adicionar campo turma_formacao multi-select |
-| `src/components/formularios/EncontroProfessorRedesForm.tsx` | Converter turma_formacao para multi-select |
+O usuário baixa o modelo e vê claramente todos os valores válidos para Papel e Programa, tanto no arquivo quanto nas instruções da tela.
 
